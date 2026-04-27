@@ -1,0 +1,27 @@
+{
+  "name": "branchscout",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BranchScout — Şube müdürü saha keşif ve ziyaret planlama uygulaması",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:migrate": "pnpm --filter @branchscout/api db:migrate",
+    "db:seed": "pnpm --filter @branchscout/api db:seed",
+    "db:studio": "pnpm --filter @branchscout/api db:studio",
+    "db:generate": "pnpm --filter @branchscout/api db:generate"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.6.3",
+    "prettier": "^3.4.1"
+  }
+}
