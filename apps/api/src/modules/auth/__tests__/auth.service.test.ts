@@ -21,6 +21,8 @@ interface FakeUser {
   role: Role;
   branchId: string | null;
   isActive: boolean;
+  totpEnabled: boolean;
+  totpSecret: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -81,6 +83,8 @@ beforeAll(async () => {
     role: "BRANCH_MANAGER",
     branchId: "b-1",
     isActive: true,
+    totpEnabled: false,
+    totpSecret: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -92,11 +96,15 @@ beforeAll(async () => {
   };
 });
 
-function makeDeps(users: FakeUser[]): AuthDeps {
+import type { LoginExtraDeps } from "../auth.service.js";
+
+function makeDeps(users: FakeUser[]): AuthDeps & LoginExtraDeps {
   return {
     prisma: makeFakePrisma(users),
     issueTokens: makeIssueTokens(),
     accessTtl: "15m",
+    issueMfaToken: ({ sub }) => `mfa-${sub}`,
+    mfaTokenTtlSeconds: 300,
   };
 }
 
@@ -105,6 +113,7 @@ describe("auth.service.login", () => {
     const deps = makeDeps([activeUser]);
     const result = await login(deps, "ayse@demo-bank.test", "correct-password");
 
+    if (result.status !== "ok") throw new Error("expected ok status");
     expect(result.accessToken).toBeTruthy();
     expect(result.refreshToken).toBeTruthy();
     expect(result.user.email).toBe("ayse@demo-bank.test");
@@ -116,7 +125,24 @@ describe("auth.service.login", () => {
     const deps = makeDeps([activeUser]);
     const result = await login(deps, "  AYSE@demo-bank.test  ", "correct-password");
 
+    if (result.status !== "ok") throw new Error("expected ok status");
     expect(result.user.email).toBe("ayse@demo-bank.test");
+  });
+
+  it("returns mfa_required when user has TOTP enabled", async () => {
+    const totpUser = {
+      ...activeUser,
+      id: "u-mfa",
+      email: "mfa@demo-bank.test",
+      totpEnabled: true,
+      totpSecret: "JBSWY3DPEHPK3PXP",
+    };
+    const deps = makeDeps([totpUser]);
+    const result = await login(deps, "mfa@demo-bank.test", "correct-password");
+
+    if (result.status !== "mfa_required") throw new Error("expected mfa_required");
+    expect(result.mfaToken).toBe("mfa-u-mfa");
+    expect(result.expiresInSeconds).toBe(300);
   });
 
   it("rejects unknown email with InvalidCredentialsError", async () => {

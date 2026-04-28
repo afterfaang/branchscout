@@ -30,15 +30,29 @@ export class InactiveUserError extends Error {
   }
 }
 
-export interface LoginResult {
+export interface LoginSuccess {
+  status: "ok";
   accessToken: string;
   refreshToken: string;
   expiresIn: string;
   user: Pick<User, "id" | "tenantId" | "email" | "name" | "role" | "branchId">;
 }
 
+export interface MfaRequired {
+  status: "mfa_required";
+  mfaToken: string;
+  expiresInSeconds: number;
+}
+
+export type LoginResult = LoginSuccess | MfaRequired;
+
+export interface LoginExtraDeps {
+  issueMfaToken: (payload: { sub: string; tenant: string; role: Role }) => string;
+  mfaTokenTtlSeconds: number;
+}
+
 export async function login(
-  deps: AuthDeps,
+  deps: AuthDeps & LoginExtraDeps,
   email: string,
   password: string,
 ): Promise<LoginResult> {
@@ -63,6 +77,82 @@ export async function login(
 
   if (!user.isActive) {
     throw new InactiveUserError();
+  }
+
+  // If TOTP is enabled, return an MFA-required intermediate state instead of
+  // the full token pair. Client must call POST /auth/login/totp with the
+  // mfaToken + 6-digit code.
+  if (user.totpEnabled) {
+    const mfaToken = deps.issueMfaToken({
+      sub: user.id,
+      tenant: user.tenantId,
+      role: user.role,
+    });
+    return {
+      status: "mfa_required",
+      mfaToken,
+      expiresInSeconds: deps.mfaTokenTtlSeconds,
+    };
+  }
+
+  const tokens = deps.issueTokens({
+    userId: user.id,
+    tenantId: user.tenantId,
+    role: user.role,
+  });
+
+  return {
+    status: "ok",
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    expiresIn: deps.accessTtl,
+    user: {
+      id: user.id,
+      tenantId: user.tenantId,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      branchId: user.branchId,
+    },
+  };
+}
+
+export interface CompleteMfaResult {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: string;
+  user: Pick<User, "id" | "tenantId" | "email" | "name" | "role" | "branchId">;
+}
+
+export class TotpInvalidError extends Error {
+  constructor() {
+    super("Invalid TOTP code");
+    this.name = "TotpInvalidError";
+  }
+}
+
+export async function completeMfaLogin(
+  deps: AuthDeps,
+  mfaPayload: { sub: string; tenant: string; role: Role },
+  verifyToken: (secret: string) => Promise<boolean> | boolean,
+): Promise<CompleteMfaResult> {
+  const user = await withAuthLookup(deps.prisma, (tx) =>
+    tx.user.findFirst({
+      where: { id: mfaPayload.sub, tenantId: mfaPayload.tenant },
+    }),
+  );
+
+  if (!user || !user.isActive) {
+    throw new InvalidCredentialsError();
+  }
+
+  if (!user.totpEnabled || !user.totpSecret) {
+    // MFA token issued but TOTP disabled in the meantime — refuse.
+    throw new TotpInvalidError();
+  }
+
+  if (!(await verifyToken(user.totpSecret))) {
+    throw new TotpInvalidError();
   }
 
   const tokens = deps.issueTokens({
