@@ -26,6 +26,13 @@ export function LoginPage() {
   const mutation = useMutation({
     mutationFn: loginRequest,
     onSuccess: (data) => {
+      if (data.status === "mfa_required") {
+        navigate("/auth/verify-mfa", {
+          replace: true,
+          state: { mfaToken: data.mfaToken },
+        });
+        return;
+      }
       setSession({
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
