@@ -11,6 +11,7 @@ import jwtPlugin from "./plugins/jwt.js";
 import tenantContextPlugin from "./plugins/tenantContext.js";
 import dbPlugin from "./plugins/db.js";
 import emailPlugin from "./plugins/email.js";
+import cachePlugin from "./plugins/cache.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { invitationRoutes } from "./modules/invitations/invitation.routes.js";
@@ -53,6 +54,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(tenantContextPlugin);
   await app.register(dbPlugin);
   await app.register(emailPlugin);
+  await app.register(cachePlugin);
 
   await app.register(swagger, {
     openapi: {
