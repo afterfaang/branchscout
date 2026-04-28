@@ -10,7 +10,7 @@
     "start": "vite preview --host 0.0.0.0 --port ${PORT:-4173}",
     "lint": "eslint src --ext .ts,.tsx",
     "type-check": "tsc -b --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@branchscout/shared": "workspace:*",

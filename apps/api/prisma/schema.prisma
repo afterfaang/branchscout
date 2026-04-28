@@ -24,9 +24,10 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users    User[]
-  regions  Region[]
-  branches Branch[]
+  users       User[]
+  regions     Region[]
+  branches    Branch[]
+  invitations Invitation[]
 }
 
 model User {
@@ -38,11 +39,16 @@ model User {
   role         Role     @default(BRANCH_MANAGER)
   branchId     String?
   isActive     Boolean  @default(true)
+  // MFA
+  totpSecret   String?
+  totpEnabled  Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch Branch? @relation(fields: [branchId], references: [id])
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch?        @relation(fields: [branchId], references: [id])
+  recoveryCodes  RecoveryCode[]
+  invitationsSent Invitation[]  @relation("InvitedBy")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -58,10 +64,11 @@ model Region {
   branches Branch[]
 
   @@unique([tenantId, name])
+  @@index([tenantId])
 }
 
 model Branch {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   tenantId         String
   regionId         String?
   code             String
@@ -69,13 +76,54 @@ model Branch {
   address          String
   // PostGIS geography(Point,4326) added via raw migration in Sprint 2
   catchmentPolygon Json?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  region Region? @relation(fields: [regionId], references: [id])
-  users  User[]
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  region      Region?      @relation(fields: [regionId], references: [id])
+  users       User[]
+  invitations Invitation[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
+  @@index([deletedAt])
+}
+
+// MFA recovery codes — 10 per user, single-use, argon2id-hashed.
+model RecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// User invitations — admin invites a new user; token is single-use, 24h validity.
+// `tokenHash` is argon2id-hashed; raw token is delivered via email link.
+model Invitation {
+  id          String    @id @default(cuid())
+  tenantId    String
+  email       String
+  name        String
+  role        Role      @default(BRANCH_MANAGER)
+  branchId    String?
+  invitedById String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch? @relation(fields: [branchId], references: [id])
+  invitedBy User    @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([expiresAt])
 }

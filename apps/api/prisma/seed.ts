@@ -61,6 +61,7 @@ async function main() {
 
   console.log(`✓ Tenant: ${tenant.slug}`);
   console.log(`✓ Admin: ${admin.email} / admin123!`);
+  console.log(`   totpEnabled=${admin.totpEnabled} (admin can opt-in via /auth/setup-totp)`);
   console.log(`✓ Region: ${region.name}`);
   console.log("✓ Branches: KDK-001, USK-002");
   console.log("Done.");
