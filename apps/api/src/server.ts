@@ -16,6 +16,7 @@ import { authRoutes } from "./modules/auth/auth.routes.js";
 import { invitationRoutes } from "./modules/invitations/invitation.routes.js";
 import { branchRoutes } from "./modules/admin/branches/branch.routes.js";
 import { adminUserRoutes } from "./modules/admin/users/user.routes.js";
+import { regionRoutes } from "./modules/regions/region.routes.js";
 
 export async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -88,6 +89,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(invitationRoutes, { prefix: "/api/v1" });
   await app.register(branchRoutes, { prefix: "/api/v1" });
   await app.register(adminUserRoutes, { prefix: "/api/v1" });
+  await app.register(regionRoutes, { prefix: "/api/v1" });
 
   app.get("/", async () => ({
     name: "BranchScout API",

@@ -6,6 +6,7 @@ import { AcceptInvitationPage } from "./features/auth/AcceptInvitationPage";
 import { MapPage } from "./features/map/MapPage";
 import { BranchesPage } from "./features/admin/branches/BranchesPage";
 import { UsersPage } from "./features/admin/users/UsersPage";
+import { MyRegionsPage } from "./features/regions/MyRegionsPage";
 import { AppShell } from "./components/AppShell";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -21,6 +22,7 @@ export default function App() {
           <Route index element={<MapPage />} />
           <Route path="admin/branches" element={<BranchesPage />} />
           <Route path="admin/users" element={<UsersPage />} />
+          <Route path="regions" element={<MyRegionsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -32,6 +32,11 @@ export function AppShell() {
                 </Link>
               </>
             )}
+            {user && user.role !== "ANALYST" && (
+              <Link to="/regions" className="text-slate-600 hover:text-slate-900">
+                Bölgelerim
+              </Link>
+            )}
             <Link to="/auth/setup-mfa" className="text-slate-600 hover:text-slate-900">
               MFA
             </Link>
