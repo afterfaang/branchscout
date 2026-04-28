@@ -7,6 +7,7 @@ import { MapPage } from "./features/map/MapPage";
 import { BranchesPage } from "./features/admin/branches/BranchesPage";
 import { UsersPage } from "./features/admin/users/UsersPage";
 import { MyRegionsPage } from "./features/regions/MyRegionsPage";
+import { CostsPage } from "./features/admin/costs/CostsPage";
 import { AppShell } from "./components/AppShell";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -22,6 +23,7 @@ export default function App() {
           <Route index element={<MapPage />} />
           <Route path="admin/branches" element={<BranchesPage />} />
           <Route path="admin/users" element={<UsersPage />} />
+          <Route path="admin/costs" element={<CostsPage />} />
           <Route path="regions" element={<MyRegionsPage />} />
         </Route>
       </Route>

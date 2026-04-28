@@ -30,6 +30,9 @@ export function AppShell() {
                 <Link to="/admin/users" className="text-slate-600 hover:text-slate-900">
                   Kullanıcılar
                 </Link>
+                <Link to="/admin/costs" className="text-slate-600 hover:text-slate-900">
+                  Maliyetler
+                </Link>
               </>
             )}
             {user && user.role !== "ANALYST" && (
