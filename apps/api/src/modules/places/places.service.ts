@@ -75,6 +75,9 @@ export async function searchNearby(
   });
 
   // Tenant-scoped upsert into the Company cache table.
+  // After the regular upsert we backfill the PostGIS `location` geography
+  // column from (lat, lng) using a raw UPDATE — Prisma can't write to the
+  // Unsupported() column directly. Idempotent and cheap.
   if (places.length > 0) {
     await withTenant(deps.prisma, opts.tenantId, async (tx) => {
       for (const p of places) {
@@ -103,6 +106,17 @@ export async function searchNearby(
             reviewCount: p.reviewCount,
           },
         });
+        // PostGIS geography backfill — wrapped in IF EXISTS check at column
+        // level so this no-ops cleanly on Postgres instances without PostGIS.
+        try {
+          await tx.$executeRaw`
+            UPDATE "Company"
+            SET location = ST_SetSRID(ST_MakePoint(${p.lng}, ${p.lat}), 4326)::geography
+            WHERE "googlePlaceId" = ${p.googlePlaceId}
+          `;
+        } catch {
+          // Column not present (PostGIS not installed) — skip silently.
+        }
       }
     });
   }
