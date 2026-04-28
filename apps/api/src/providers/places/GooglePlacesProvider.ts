@@ -80,7 +80,8 @@ export class GooglePlacesProvider implements PlacesProvider {
 
   async searchNearby(params: NearbySearchParams): Promise<PlaceSummary[]> {
     const body: GoogleNearbyRequest = {
-      maxResultCount: Math.min(Math.max(params.maxResults ?? 50, 1), 50),
+      // Google Places (New) caps Nearby Search at 20 results per call.
+      maxResultCount: Math.min(Math.max(params.maxResults ?? 20, 1), 20),
       rankPreference: "DISTANCE",
       locationRestriction: {
         circle: {
