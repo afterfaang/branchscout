@@ -32,16 +32,38 @@ export function MapPage() {
   const lat = Number(searchParams.get("lat")) || DEFAULT_CENTER.lat;
   const lng = Number(searchParams.get("lng")) || DEFAULT_CENTER.lng;
   const radius = Number(searchParams.get("radius")) || 1000;
+  const selectedCategories = useMemo<PlaceCategory[]>(() => {
+    const raw = searchParams.get("cats");
+    if (!raw) return [];
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s): s is PlaceCategory => ALL_CATEGORIES.includes(s as PlaceCategory));
+  }, [searchParams]);
 
   const updateUrl = useCallback(
-    (next: Partial<{ lat: number; lng: number; radius: number }>) => {
+    (next: Partial<{ lat: number; lng: number; radius: number; cats: PlaceCategory[] }>) => {
       const params = new URLSearchParams(searchParams);
       if (next.lat !== undefined) params.set("lat", next.lat.toFixed(6));
       if (next.lng !== undefined) params.set("lng", next.lng.toFixed(6));
       if (next.radius !== undefined) params.set("radius", String(next.radius));
+      if (next.cats !== undefined) {
+        if (next.cats.length === 0) params.delete("cats");
+        else params.set("cats", next.cats.join(","));
+      }
       setSearchParams(params, { replace: true });
     },
     [searchParams, setSearchParams],
+  );
+
+  const toggleCategory = useCallback(
+    (cat: PlaceCategory) => {
+      const next = selectedCategories.includes(cat)
+        ? selectedCategories.filter((c) => c !== cat)
+        : [...selectedCategories, cat];
+      updateUrl({ cats: next });
+    },
+    [selectedCategories, updateUrl],
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,8 +78,24 @@ export function MapPage() {
   const [drawingActive, setDrawingActive] = useState(false);
   const [polygonError, setPolygonError] = useState<string | null>(null);
 
+  // Filter the displayed places by the active category set (client-side).
+  // Backend search also accepts categories — passing them at fetch time keeps
+  // cache keys tight; client filter handles toggling without a refetch.
+  const visiblePlaces = useMemo(() => {
+    if (selectedCategories.length === 0) return places;
+    const allowed = new Set(selectedCategories);
+    return places.filter((p) => allowed.has(p.category));
+  }, [places, selectedCategories]);
+
   const searchM = useMutation({
-    mutationFn: () => searchNearby({ lat, lng, radius, maxResults: 50 }),
+    mutationFn: () =>
+      searchNearby({
+        lat,
+        lng,
+        radius,
+        maxResults: 50,
+        categories: selectedCategories.length > 0 ? selectedCategories : undefined,
+      }),
     onSuccess: (res) => {
       setPlaces(res.data);
       setSearchMeta({ source: res.meta.source, count: res.meta.count });
@@ -66,7 +104,12 @@ export function MapPage() {
   });
 
   const polygonM = useMutation({
-    mutationFn: (polygon: GeoJsonPolygon) => searchPolygon({ polygon, maxResults: 200 }),
+    mutationFn: (polygon: GeoJsonPolygon) =>
+      searchPolygon({
+        polygon,
+        categories: selectedCategories.length > 0 ? selectedCategories : undefined,
+        maxResults: 200,
+      }),
     onSuccess: (res) => {
       setPlaces(res.data);
       setSearchMeta({ source: res.meta.source, count: res.meta.count });
@@ -221,7 +264,7 @@ export function MapPage() {
       minPoints: 4,
     });
     cluster.load(
-      places.map((p) => ({
+      visiblePlaces.map((p) => ({
         type: "Feature",
         geometry: { type: "Point", coordinates: [p.lng, p.lat] },
         properties: {
@@ -232,7 +275,7 @@ export function MapPage() {
       })),
     );
     return cluster;
-  }, [places]);
+  }, [visiblePlaces]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -296,7 +339,7 @@ export function MapPage() {
     return () => {
       cancelled = true;
     };
-  }, [mapReady, supercluster, places.length]);
+  }, [mapReady, supercluster, visiblePlaces.length]);
 
   if (!mapsAvailable) {
     return (
@@ -415,18 +458,52 @@ export function MapPage() {
         </div>
       )}
 
-      {/* Top-right: legend */}
-      <div className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-md shadow-sm px-3 py-2 text-xs space-y-1">
-        <div className="font-semibold text-slate-700 mb-1">Kategori</div>
-        {ALL_CATEGORIES.map((c) => (
-          <div key={c} className="flex items-center gap-2">
-            <span
-              className="inline-block w-3 h-3 rounded-full"
-              style={{ background: CATEGORY_COLOR[c] }}
-            />
-            <span className="text-slate-700">{CATEGORY_LABEL[c]}</span>
-          </div>
-        ))}
+      {/* Top-right: category filter (toggleable chips) */}
+      <div className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-md shadow-sm px-3 py-2 text-xs space-y-1.5 max-w-[220px]">
+        <div className="flex items-center justify-between mb-1">
+          <span className="font-semibold text-slate-700">Kategori</span>
+          {selectedCategories.length > 0 && (
+            <button
+              type="button"
+              onClick={() => updateUrl({ cats: [] })}
+              className="text-xs text-brand-600 hover:underline"
+            >
+              temizle
+            </button>
+          )}
+        </div>
+        {ALL_CATEGORIES.map((c) => {
+          const active = selectedCategories.length === 0 || selectedCategories.includes(c);
+          return (
+            <button
+              key={c}
+              type="button"
+              onClick={() => toggleCategory(c)}
+              className={
+                "flex items-center gap-2 w-full text-left rounded px-1 py-0.5 transition-colors " +
+                (active ? "" : "opacity-40")
+              }
+              title={
+                selectedCategories.includes(c)
+                  ? "Filtreden çıkar"
+                  : selectedCategories.length === 0
+                    ? "Sadece bu kategoriyi göster"
+                    : "Filtreye ekle"
+              }
+            >
+              <span
+                className="inline-block w-3 h-3 rounded-full"
+                style={{ background: CATEGORY_COLOR[c] }}
+              />
+              <span className="text-slate-700">{CATEGORY_LABEL[c]}</span>
+            </button>
+          );
+        })}
+        <p className="text-[10px] text-slate-400 leading-tight pt-1 border-t border-slate-100">
+          {selectedCategories.length === 0
+            ? "Hepsi gösteriliyor"
+            : `${selectedCategories.length} kategori filtrede`}
+        </p>
       </div>
     </div>
   );
