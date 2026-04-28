@@ -13,6 +13,7 @@ import dbPlugin from "./plugins/db.js";
 import emailPlugin from "./plugins/email.js";
 import cachePlugin from "./plugins/cache.js";
 import placesPlugin from "./plugins/places.js";
+import rateLimitPlugin from "./plugins/rateLimit.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { invitationRoutes } from "./modules/invitations/invitation.routes.js";
@@ -57,6 +58,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(emailPlugin);
   await app.register(cachePlugin);
   await app.register(placesPlugin);
+  await app.register(rateLimitPlugin);
 
   await app.register(swagger, {
     openapi: {
