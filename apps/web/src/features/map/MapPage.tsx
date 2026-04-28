@@ -75,11 +75,17 @@ export function MapPage() {
   const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
   const polygonOverlayRef = useRef<google.maps.Polygon | null>(null);
+  const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [places, setPlaces] = useState<PlaceSummary[]>([]);
   const [searchMeta, setSearchMeta] = useState<{ source: string; count: number } | null>(null);
   const [drawingActive, setDrawingActive] = useState(false);
   const [polygonError, setPolygonError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(14);
+  const [forceHeatmap, setForceHeatmap] = useState<"auto" | "on" | "off">("auto");
+  // Heatmap kicks in below zoom 13 unless the user overrides.
+  const heatmapVisible =
+    forceHeatmap === "on" ? true : forceHeatmap === "off" ? false : zoom < 13;
 
   // Filter the displayed places by the active category set (client-side).
   // Backend search also accepts categories — passing them at fetch time keeps
@@ -227,6 +233,8 @@ export function MapPage() {
         map.addListener("idle", () => {
           const c = map.getCenter();
           if (c) updateUrl({ lat: c.lat(), lng: c.lng() });
+          const z = map.getZoom();
+          if (typeof z === "number") setZoom(z);
         });
         // Drawing manager — kapalı duruyor, button ile aktif edilir.
         const dm = new libs.drawing.DrawingManager({
@@ -361,6 +369,9 @@ export function MapPage() {
       for (const m of markersRef.current) m.map = null;
       markersRef.current = [];
 
+      // While heatmap is visible, skip pin rendering.
+      if (heatmapVisible) return;
+
       const bounds = map.getBounds();
       if (!bounds) return;
       const zoom = map.getZoom() ?? 14;
@@ -412,7 +423,38 @@ export function MapPage() {
     return () => {
       cancelled = true;
     };
-  }, [mapReady, supercluster, visiblePlaces.length]);
+  }, [mapReady, supercluster, visiblePlaces.length, heatmapVisible]);
+
+  // Heatmap render: visualization library + LatLng points; toggle visibility
+  // based on zoom. Cleared/recreated when visiblePlaces or visibility flips.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    let cancelled = false;
+    void (async () => {
+      const libs = await loadMaps();
+      if (cancelled || !libs) return;
+      // Tear down existing.
+      if (heatmapRef.current) {
+        heatmapRef.current.setMap(null);
+        heatmapRef.current = null;
+      }
+      if (!heatmapVisible || visiblePlaces.length === 0) return;
+      const data = visiblePlaces.map(
+        (p) => new google.maps.LatLng(p.lat, p.lng),
+      );
+      const heatmap = new libs.visualization.HeatmapLayer({
+        map,
+        data,
+        radius: 32,
+        opacity: 0.65,
+      });
+      heatmapRef.current = heatmap;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mapReady, visiblePlaces, heatmapVisible]);
 
   if (!mapsAvailable) {
     return (
@@ -463,6 +505,38 @@ export function MapPage() {
 
       {/* Saved searches panel — left of the legend */}
       <SavedSearchPanel capture={captureQuery} onLoad={(q) => void loadQuery(q)} />
+
+      {/* Heatmap toggle (top-left, below user info) */}
+      <div className="absolute top-20 left-4 z-10 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-md shadow-sm px-3 py-2 text-xs flex items-center gap-2">
+        <span className="text-slate-600">Yoğunluk</span>
+        <div className="inline-flex rounded-md border border-slate-200 overflow-hidden">
+          {(["auto", "on", "off"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setForceHeatmap(mode)}
+              className={
+                "px-2 py-0.5 transition-colors " +
+                (forceHeatmap === mode
+                  ? "bg-brand-600 text-white"
+                  : "text-slate-600 hover:bg-slate-50")
+              }
+              title={
+                mode === "auto"
+                  ? "Zoom < 13 olduğunda otomatik aç"
+                  : mode === "on"
+                    ? "Her zaman aç"
+                    : "Her zaman kapat"
+              }
+            >
+              {mode === "auto" ? "auto" : mode === "on" ? "açık" : "kapalı"}
+            </button>
+          ))}
+        </div>
+        {heatmapVisible && (
+          <span className="text-emerald-600 text-[10px]">aktif</span>
+        )}
+      </div>
 
       {/* Bottom bar: radius selector + draw + search */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-full shadow-md px-2 py-1.5">
