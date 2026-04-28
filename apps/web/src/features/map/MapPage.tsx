@@ -6,6 +6,7 @@ import { isMapsAvailable, loadMaps } from "../../lib/maps/loader";
 import { useAuthStore } from "../auth/authStore";
 import { searchNearby, searchPolygon, type GeoJsonPolygon } from "./placesApi";
 import { ApiError } from "../../lib/apiClient";
+import { AddressSearch } from "./components/AddressSearch";
 import {
   ALL_CATEGORIES,
   CATEGORY_COLOR,
@@ -372,6 +373,20 @@ export function MapPage() {
         <div className="text-xs text-slate-500">
           {lat.toFixed(4)}, {lng.toFixed(4)}
         </div>
+      </div>
+
+      {/* Top-center: address autocomplete */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 w-80">
+        <AddressSearch
+          onSelect={({ lat: pickLat, lng: pickLng }) => {
+            updateUrl({ lat: pickLat, lng: pickLng });
+            const map = mapRef.current;
+            if (map) {
+              map.panTo({ lat: pickLat, lng: pickLng });
+              map.setZoom(15);
+            }
+          }}
+        />
       </div>
 
       {/* Bottom bar: radius selector + draw + search */}
