@@ -28,6 +28,7 @@ model Tenant {
   regions     Region[]
   branches    Branch[]
   invitations Invitation[]
+  companies   Company[]
 }
 
 model User {
@@ -126,4 +127,62 @@ model Invitation {
   @@index([tenantId])
   @@index([email])
   @@index([expiresAt])
+}
+
+// Discovered company (cache + enriched data layer).
+// Google Places ToS: place_id may be persisted indefinitely; other fields are
+// cached for ~30 days (Sprint 4 enrichment) and refreshed on demand.
+//
+// Geographic queries: Sprint 2 uses (lat, lng) Float columns + a simple
+// composite index. PostGIS GEOGRAPHY column is added later via manual migration
+// (apps/api/prisma/migrations/manual/04_postgis_company.sql) when the
+// extension is available; ST_DWithin queries replace lat/lng range scans then.
+model Company {
+  id                String   @id @default(cuid())
+  tenantId          String
+  googlePlaceId     String   @unique
+  name              String
+  formattedAddress  String?
+  lat               Float?
+  lng               Float?
+  category          String?  // primary type from Places API
+  types             String[] @default([])
+  rating            Float?
+  reviewCount       Int?
+  photosJson        Json?
+  hoursJson         Json?
+  // Sprint 4+ enrichment fields (placeholders, populated later)
+  websiteUri        String?
+  phone             String?
+  websiteSummaryText String?
+  // Sprint 6 — MERSIS
+  mersisNo          String?
+  vergiNo           String?
+  // Sprint 13 — lead score
+  leadScore         Int?
+  lastEnrichedAt    DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, category])
+  @@index([tenantId, lat, lng])
+}
+
+// Outbound API cost tracking — every paid external call writes one row.
+// Used by `/admin/costs/today` dashboard and budget alerts (Sprint 8).
+model ApiCostEvent {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  userId    String?
+  provider  String   // e.g. "google_places", "anthropic"
+  endpoint  String   // e.g. "nearby_search", "place_details", "messages.create"
+  costUsd   Decimal  @db.Decimal(12, 6)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([provider, createdAt])
 }
