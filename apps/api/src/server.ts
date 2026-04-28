@@ -10,6 +10,7 @@ import prismaPlugin from "./plugins/prisma.js";
 import jwtPlugin from "./plugins/jwt.js";
 import tenantContextPlugin from "./plugins/tenantContext.js";
 import dbPlugin from "./plugins/db.js";
+import emailPlugin from "./plugins/email.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 
@@ -47,6 +48,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(jwtPlugin);
   await app.register(tenantContextPlugin);
   await app.register(dbPlugin);
+  await app.register(emailPlugin);
 
   await app.register(swagger, {
     openapi: {
