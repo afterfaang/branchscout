@@ -34,10 +34,10 @@ export function AddressSearch({ onSelect, className }: Props) {
   const inputId = useId();
 
   const available = useMemo(() => isMapsAvailable(), []);
-  if (!available) return null;
 
   // Debounced suggestions fetch
   useEffect(() => {
+    if (!available) return;
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
     if (!query.trim() || query.length < 2) {
       setSuggestions([]);
@@ -50,7 +50,9 @@ export function AddressSearch({ onSelect, className }: Props) {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
+  }, [query, available]);
+
+  if (!available) return null;
 
   async function runFetch(input: string) {
     const libs = await loadMaps();

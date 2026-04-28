@@ -5,7 +5,7 @@
 // ait kayıtları döndürür (servis katmanı seviyesinde ek filtreleme).
 
 import type { FastifyInstance } from "fastify";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 const CreateSchema = z.object({

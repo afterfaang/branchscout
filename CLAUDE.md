@@ -102,7 +102,18 @@ Dış API çağrılarında her zaman cost middleware kullan; her çağrı `ApiCo
 - `GET /api/v1/admin/costs/today` — ADMIN, bugünkü API maliyeti (provider+endpoint kırılımı).
 - Frontend: `features/map/MapPage.tsx` — Maps SDK lazy loader, AdvancedMarkerElement, supercluster clustering, yarıçap chip seçici, URL state (lat/lng/radius), kategori legend. API key yoksa demo liste paneli (provider abstraction sayesinde aynı backend akışı çalışır).
 - Rate limit: `@fastify/rate-limit`, kullanıcı bazında 60/dk; Redis store opsiyonel.
-- PostGIS: lat/lng Float kolonları + composite index. PostGIS GEOGRAPHY kolonu Sprint 3+ için `manual/05_postgis_company.sql` (idempotent + permission-tolerant) altında bekliyor.
+- PostGIS: Sprint 3'te aktif. Railway Postgres servisi `postgis/postgis:17-3.5` imajına geçti; `Company.location geography(Point,4326)` + GIST index aktif. Üst raw SQL upsert `places.service`'te lat/lng'den dolduruyor.
+
+## Sprint 3 — Discovery (tamamlandı)
+
+- `POST /api/v1/places/search/polygon` — GeoJSON polygon body, alanı 100 km² ile sınırlı (spherical-excess area), `ST_Contains` ile cache'lenmiş Company tablosundan döner. PostGIS yoksa bbox + ray-casting fallback'i.
+- Saved searches: `GET/POST/PATCH/DELETE /api/v1/saved-searches` — kullanıcı bazlı, queryJson içinde center/radius/polygon/categories/zoom.
+- Frontend yenileri:
+  - `features/map/components/AddressSearch.tsx` — Google Places (New) Autocomplete + session token (cost optimization).
+  - `features/map/components/SavedSearchPanel.tsx` — sol-üst panel: kayıt/yükle/sil.
+  - MapPage: drawing manager (Alan Çiz), kategori chip filtre (URL state `?cats=`), heatmap layer (zoom <13'te otomatik).
+- Manuel SQL: `06_saved_search_rls.sql` (RLS).
+- Maps SDK loader artık `maps + marker + drawing + visualization + places` library'lerini lazy load ediyor.
 
 ## RLS — Sprint 1.6 sıkılaştırılmış
 
