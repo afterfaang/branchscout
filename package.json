@@ -20,8 +20,15 @@
     "db:generate": "pnpm --filter @branchscout/api db:generate"
   },
   "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.14",
+    "globals": "^15.13.0",
+    "prettier": "^3.4.1",
     "turbo": "^2.3.3",
     "typescript": "^5.6.3",
-    "prettier": "^3.4.1"
+    "typescript-eslint": "^8.17.0"
   }
 }

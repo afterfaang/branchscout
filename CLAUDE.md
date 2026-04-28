@@ -26,8 +26,10 @@ Railway üzerinde deploy ediliyor.
 
 - Prisma schema tek kaynak: `apps/api/prisma/schema.prisma`
 - Migration: `pnpm db:migrate`
-- PostGIS gerektiren raw SQL'ler: `apps/api/prisma/migrations/manual/` (Sprint 2'de gelecek)
+- Manual (raw SQL) migration'lar: `apps/api/prisma/migrations/manual/` — RLS policy'leri burada; PostGIS Sprint 2'de eklenecek
+- Manual SQL uygulama: `pnpm --filter @branchscout/api db:migrate:manual`
 - Tüm yeni tablolar `tenantId` taşır; RLS policy migration'da yazılır
+- Sprint 1: RLS aktif ama "permissive fallback" var — `app.current_tenant` setting yokken read açık. Sprint 2'de Prisma client extension ile per-request `SET LOCAL app.current_tenant` zorunlu hale gelecek
 
 ## API kontratı
 
@@ -67,8 +69,16 @@ Dış API çağrılarında her zaman cost middleware kullan; her çağrı `ApiCo
 
 `docs/SPRINT_PLAN.md` 16 sprintlik plan. Aktif sprint'in user story'leri ve AC'leri her sprint başında planlanır. Claude Code, ilgili sprint'in story'lerini görerek çalışır.
 
+## Auth modülü (Sprint 1)
+
+- JWT plugin: `apps/api/src/plugins/jwt.ts` — access (15dk) + refresh (7gün), HS256, jti
+- Auth route'ları: `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `GET /api/v1/auth/me`
+- Korumalı endpoint pattern: route definition'ında `preHandler: app.requireAuth`, handler içinde `request.auth!`
+- Argon2id parola hash; seed'deki demo admin: `admin@demo-bank.test` / `admin123!`
+- TOTP / MFA: Sprint 1 user story US-1.3'ün ikinci PR'ında eklenecek
+
 ## Önemli
 
-- Banka iç sistemleri (SSO, CRM, MERSİS) mock olarak başlar; production'da provider değişir
-- Google Maps API key sadece Sprint 2'de devreye girer; o zamana kadar harita placeholder
-- Güvenlik: Helmet, CORS, JWT, rate limit Sprint 0'da kuruldu; sıkılaştırma Sprint 15'te
+- Banka iç sistemleri (SSO, CRM, MERSİS) yok — SaaS olarak konumlanıyor; PRD § 7.4 veri kaynağı stratejisi
+- Google Maps API key Sprint 2'de devreye girer; o zamana kadar harita placeholder
+- Güvenlik: Helmet, CORS, JWT, RLS Sprint 0-1'de kuruldu; sıkılaştırma + pen test Sprint 15'te

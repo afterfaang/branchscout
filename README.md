@@ -3,7 +3,7 @@
 Banka şube müdürleri için saha keşif ve ziyaret planlama uygulaması.
 Şube müdürü kendi catchment area'sındaki KOBİ'leri haritada keşfeder, firma bilgilerini birleşik bir panelden görür, ziyaret rotaları planlar ve sonuçları takip eder.
 
-> 🚧 **Sprint 0 — kurulum aşaması.** Şu anda monorepo iskeleti, sağlık endpoint'i ve dağıtım altyapısı hazır. Sprint 1+ ile özellikler gelecek.
+> 🚧 **Sprint 1 — auth aşaması.** Monorepo iskeleti, JWT auth (login/refresh/me), demo seed kullanıcısı ile çalışan giriş akışı, ESLint flat config, GitHub Actions CI, RLS migration ve Vitest auth testleri hazır.
 
 ## Hızlı Başlangıç
 
@@ -24,10 +24,14 @@ pnpm dev
 ### Veritabanı
 
 ```bash
-pnpm db:migrate     # migration'ları uygula
-pnpm db:seed        # demo tenant + admin + 2 şube
-pnpm db:studio      # Prisma Studio
+pnpm db:migrate                                      # Prisma migration'ları
+pnpm --filter @branchscout/api db:migrate:manual     # RLS policy migration'ı (manual SQL)
+pnpm db:seed                                         # demo tenant + admin + 2 şube
+pnpm db:studio                                       # Prisma Studio
 ```
+
+Demo giriş bilgileri (seed sonrası):  
+**Email:** `admin@demo-bank.test` · **Parola:** `admin123!`
 
 Lokal Postgres yoksa Railway'in dev DB URL'ini `.env` içine `DATABASE_URL` olarak yapıştırabilirsiniz.
 

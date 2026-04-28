@@ -1,6 +1,16 @@
-import { Outlet, Link } from "react-router-dom";
+import { Outlet, Link, useNavigate } from "react-router-dom";
+import { useAuthStore } from "../features/auth/authStore";
 
 export function AppShell() {
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const clear = useAuthStore((s) => s.clear);
+
+  const handleLogout = () => {
+    clear();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-slate-200 bg-white">
@@ -11,10 +21,23 @@ export function AppShell() {
             </span>
             <span className="font-semibold text-slate-900">BranchScout</span>
           </Link>
-          <nav className="text-sm text-slate-600">
-            <Link to="/login" className="hover:text-slate-900">
-              Giriş
-            </Link>
+          <nav className="flex items-center gap-3 text-sm">
+            {user && (
+              <span className="text-slate-600">
+                {user.name}
+                <span className="text-slate-400"> · </span>
+                <span className="text-xs uppercase tracking-wide text-slate-500">
+                  {user.role}
+                </span>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="text-slate-600 hover:text-slate-900"
+            >
+              Çıkış
+            </button>
           </nav>
         </div>
       </header>
@@ -23,7 +46,7 @@ export function AppShell() {
       </main>
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-4 text-xs text-slate-500">
-          BranchScout v0.1.0 — Sprint 0 skeleton
+          BranchScout v0.1.0 — Sprint 1 (auth)
         </div>
       </footer>
     </div>

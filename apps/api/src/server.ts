@@ -6,7 +6,11 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
+import prismaPlugin from "./plugins/prisma.js";
+import jwtPlugin from "./plugins/jwt.js";
+import tenantContextPlugin from "./plugins/tenantContext.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
+import { authRoutes } from "./modules/auth/auth.routes.js";
 
 export async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -36,6 +40,11 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   await app.register(sensible);
+
+  // Core infrastructure plugins
+  await app.register(prismaPlugin);
+  await app.register(jwtPlugin);
+  await app.register(tenantContextPlugin);
 
   await app.register(swagger, {
     openapi: {
@@ -68,6 +77,7 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // Routes
   await app.register(healthRoutes, { prefix: "/health" });
+  await app.register(authRoutes, { prefix: "/api/v1/auth" });
 
   app.get("/", async () => ({
     name: "BranchScout API",
