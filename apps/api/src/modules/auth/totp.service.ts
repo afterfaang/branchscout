@@ -22,7 +22,7 @@ const ISSUER = "BranchScout";
 export async function generateTotpSetup(opts: {
   accountName: string; // typically user.email
 }): Promise<TotpSetupResult> {
-  const secret = await generateSecret({ length: 20 });
+  const secret = generateSecret({ length: 20 });
   const otpauthUri = generateURI({
     secret,
     issuer: ISSUER,

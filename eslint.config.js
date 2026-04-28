@@ -52,6 +52,10 @@ export default tseslint.config(
       ],
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/consistent-type-imports": "warn",
+      // Fastify plugins/routes have to be `async` by signature even when
+      // they don't await anything inside. Same for test fakes that must
+      // implement async methods like `findFirst`.
+      "@typescript-eslint/require-await": "off",
       "no-console": ["warn", { allow: ["warn", "error", "info"] }],
     },
   },

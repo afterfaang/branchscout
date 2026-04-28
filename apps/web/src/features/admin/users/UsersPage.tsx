@@ -56,7 +56,7 @@ export function UsersPage() {
         branchId: v.branchId || null,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin", "invitations"] });
+      void qc.invalidateQueries({ queryKey: ["admin", "invitations"] });
       setShowForm(false);
       form.reset();
     },
@@ -64,7 +64,7 @@ export function UsersPage() {
 
   const revokeM = useMutation({
     mutationFn: (id: string) => revokeInvitation(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "invitations"] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin", "invitations"] }),
   });
 
   const inviteError =

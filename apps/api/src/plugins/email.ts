@@ -16,7 +16,7 @@ declare module "fastify" {
 
 async function emailPlugin(app: FastifyInstance) {
   const provider = await buildEmailProvider({
-    env: process.env as Record<string, string | undefined>,
+    env: process.env,
     logger: (msg) => app.log.info({ provider: "email" }, msg),
   });
   app.log.info({ provider: provider.name }, "email provider initialised");

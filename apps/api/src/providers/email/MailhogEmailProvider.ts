@@ -24,10 +24,10 @@ export class MailhogEmailProvider implements EmailProvider {
   static async create(config: MailhogConfig): Promise<MailhogEmailProvider> {
     let nodemailer: { createTransport: (opts: unknown) => unknown };
     try {
-      // Dynamic import — nodemailer is an optional peer dep.
-      // Typed as `any` so the project compiles without @types/nodemailer.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      nodemailer = (await import(/* @vite-ignore */ "nodemailer" as string)) as any;
+      // Dynamic import — nodemailer is an optional peer dep, no @types/* installed.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      // @ts-expect-error -- module is optional and not type-resolved
+      nodemailer = await import(/* @vite-ignore */ "nodemailer");
     } catch {
       throw new Error("nodemailer is not installed; cannot use MailhogEmailProvider");
     }

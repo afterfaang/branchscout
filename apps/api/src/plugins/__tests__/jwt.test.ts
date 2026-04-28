@@ -3,6 +3,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import sensible from "@fastify/sensible";
+import type { Role } from "@prisma/client";
 import jwtPlugin from "../jwt.js";
 
 describe("jwt plugin", () => {
@@ -87,7 +88,7 @@ describe("jwt plugin", () => {
     // requireRole tests need to register routes; these can only be added
     // before app.ready(), so each test builds its own app instance.
     async function buildAppWithRoute(opts: {
-      role: import("@prisma/client").Role[];
+      role: Role[];
       path: string;
     }) {
       const local = Fastify({ logger: false });

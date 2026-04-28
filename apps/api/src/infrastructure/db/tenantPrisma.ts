@@ -15,7 +15,8 @@
 // Sprint 1.6 sonrası fallback kaldırılır ve auth endpoint'leri ilgili
 // sorgularda kendi user-bound tx'ini açar.
 
-import { Prisma, PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 export type TenantBoundClient = Prisma.TransactionClient;
 

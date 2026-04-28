@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyError, type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import sensible from "@fastify/sensible";
@@ -70,7 +70,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   // RFC 7807 problem-details error handler
-  app.setErrorHandler((error: import("fastify").FastifyError, request, reply) => {
+  app.setErrorHandler((error: FastifyError, request, reply) => {
     request.log.error({ err: error }, "request error");
     const status = error.statusCode ?? 500;
     reply.status(status).send({

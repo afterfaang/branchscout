@@ -1,6 +1,7 @@
 // Branch admin route'ları — ADMIN-only CRUD.
 
 import type { FastifyInstance } from "fastify";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import {
   BranchError,
@@ -58,10 +59,7 @@ export async function branchRoutes(app: FastifyInstance) {
             address: parsed.data.address,
             regionId: parsed.data.regionId ?? null,
             catchmentPolygon:
-              (parsed.data.catchmentPolygon as
-                | import("@prisma/client").Prisma.InputJsonValue
-                | null
-                | undefined) ?? null,
+              (parsed.data.catchmentPolygon as Prisma.InputJsonValue | null | undefined) ?? null,
           }),
         );
         return reply.code(201).send({ branch });
@@ -99,10 +97,7 @@ export async function branchRoutes(app: FastifyInstance) {
             address: parsed.data.address,
             regionId: parsed.data.regionId,
             catchmentPolygon:
-              parsed.data.catchmentPolygon as
-                | import("@prisma/client").Prisma.InputJsonValue
-                | null
-                | undefined,
+              parsed.data.catchmentPolygon as Prisma.InputJsonValue | null | undefined,
           }),
         );
         return reply.send({ branch });

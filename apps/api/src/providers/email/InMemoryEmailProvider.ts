@@ -18,7 +18,7 @@ export class InMemoryEmailProvider implements EmailProvider {
 
   constructor(opts: { maxSize?: number; logger?: (msg: string) => void } = {}) {
     this.maxSize = opts.maxSize ?? 100;
-    this.logger = opts.logger ?? ((m) => console.log(m));
+    this.logger = opts.logger ?? ((m) => console.info(m));
   }
 
   private logger: (msg: string) => void;

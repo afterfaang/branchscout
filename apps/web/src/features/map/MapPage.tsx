@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+const API_URL: string =
+  (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:4000";
 
 interface Health {
   status: string;
@@ -15,7 +16,7 @@ export function MapPage() {
     queryFn: async () => {
       const res = await fetch(`${API_URL}/health`);
       if (!res.ok) throw new Error("API unreachable");
-      return res.json();
+      return (await res.json()) as Health;
     },
     refetchInterval: 10_000,
   });
@@ -28,8 +29,8 @@ export function MapPage() {
         </h1>
         <p className="text-slate-600">
           Banka şube müdürleri için saha keşif ve ziyaret planlama uygulaması.
-          Sprint 0 iskeleti çalışıyor — Sprint 1'de auth, Sprint 2'de harita
-          gelecek.
+          Sprint 1&apos;de auth + multi-tenant tamamlandı; Sprint 2&apos;de
+          harita ve Google Places gelecek.
         </p>
       </div>
 
@@ -37,7 +38,7 @@ export function MapPage() {
         <Card title="API Durumu">
           {isLoading && <span className="text-slate-500">kontrol ediliyor…</span>}
           {error && (
-            <span className="text-red-600">⚠ API'ye ulaşılamıyor</span>
+            <span className="text-red-600">⚠ API&apos;ye ulaşılamıyor</span>
           )}
           {data && (
             <div className="space-y-1 text-sm">

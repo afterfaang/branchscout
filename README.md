@@ -3,7 +3,7 @@
 Banka şube müdürleri için saha keşif ve ziyaret planlama uygulaması.
 Şube müdürü kendi catchment area'sındaki KOBİ'leri haritada keşfeder, firma bilgilerini birleşik bir panelden görür, ziyaret rotaları planlar ve sonuçları takip eder.
 
-> 🚧 **Sprint 1 — auth aşaması.** Monorepo iskeleti, JWT auth (login/refresh/me), demo seed kullanıcısı ile çalışan giriş akışı, ESLint flat config, GitHub Actions CI, RLS migration ve Vitest auth testleri hazır.
+> ✅ **Sprint 1 tamamlandı.** Monorepo iskeleti, JWT auth + TOTP/MFA, kullanıcı davet akışı (24h token, argon2id), şube CRUD admin paneli, role-based bölge görünümü, sıkılaştırılmış multi-tenant RLS, e-posta provider abstraction (InMemory/Mailhog/Postmark), Vitest auth + invitation + TOTP testleri (33 yeşil), GitHub Actions CI.
 
 ## Hızlı Başlangıç
 

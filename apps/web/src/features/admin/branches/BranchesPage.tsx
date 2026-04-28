@@ -52,20 +52,20 @@ export function BranchesPage() {
   const createM = useMutation({
     mutationFn: (v: FormValues) => createBranch(v),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin", "branches"] });
+      void qc.invalidateQueries({ queryKey: ["admin", "branches"] });
       closeForm();
     },
   });
   const updateM = useMutation({
     mutationFn: (v: FormValues) => updateBranch(editing!.id, v),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin", "branches"] });
+      void qc.invalidateQueries({ queryKey: ["admin", "branches"] });
       closeForm();
     },
   });
   const deleteM = useMutation({
     mutationFn: (id: string) => deleteBranch(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "branches"] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin", "branches"] }),
   });
 
   const onSubmit = form.handleSubmit((v) =>
@@ -112,7 +112,7 @@ export function BranchesPage() {
               {branchesQ.data.branches.length === 0 && (
                 <tr>
                   <td colSpan={4} className="py-6 px-4 text-center text-slate-500">
-                    Henüz şube yok. "Yeni Şube" butonu ile ekleyin.
+                    Henüz şube yok. &ldquo;Yeni Şube&rdquo; butonu ile ekleyin.
                   </td>
                 </tr>
               )}

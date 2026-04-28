@@ -69,13 +69,37 @@ Dış API çağrılarında her zaman cost middleware kullan; her çağrı `ApiCo
 
 `docs/SPRINT_PLAN.md` 16 sprintlik plan. Aktif sprint'in user story'leri ve AC'leri her sprint başında planlanır. Claude Code, ilgili sprint'in story'lerini görerek çalışır.
 
-## Auth modülü (Sprint 1)
+## Auth modülü (Sprint 1 — tamamlandı)
 
 - JWT plugin: `apps/api/src/plugins/jwt.ts` — access (15dk) + refresh (7gün), HS256, jti
-- Auth route'ları: `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `GET /api/v1/auth/me`
-- Korumalı endpoint pattern: route definition'ında `preHandler: app.requireAuth`, handler içinde `request.auth!`
-- Argon2id parola hash; seed'deki demo admin: `admin@demo-bank.test` / `admin123!`
-- TOTP / MFA: Sprint 1 user story US-1.3'ün ikinci PR'ında eklenecek
+- Role guard: `app.requireRole("ADMIN", "REGION_MANAGER", ...)` preHandler factory'si
+- Auth route'ları (prefix `/api/v1/auth`):
+    - `POST /login` → 200 ok | 202 mfa_required
+    - `POST /login/totp` → MFA tamamlama (mfaToken + 6 hane)
+    - `POST /refresh`, `GET /me`
+    - `POST /setup-totp` → QR + recovery codes
+    - `POST /verify-totp` → TOTP'yi etkinleştir
+    - `POST /recover` → recovery code ile TOTP sıfırla
+- Invitation route'ları (prefix `/api/v1`):
+    - `GET /invitations/:token` (public)
+    - `POST /invitations/accept` (public, auto-login)
+    - `POST /admin/users/invite`, `GET /admin/users/invitations`, `DELETE /admin/users/invitations/:id` (ADMIN)
+- Admin: `GET /admin/users`, branches CRUD `(GET|POST|PATCH|DELETE) /admin/branches[/:id]`
+- Regions: `GET /regions/my` — role'e göre erişilebilir bölgeler
+- Korumalı endpoint pattern: `preHandler: app.requireAuth` (veya `requireRole`), handler içinde `request.auth!` ve `request.db((tx) => ...)`
+- Argon2id parola hash; demo admin (seed): `admin@demo-bank.test` / `admin123!`
+- TOTP: otplib (RFC 6238, ±30s tolerance), 10 recovery code (XXXX-XXXX, argon2id-hashed)
+
+## Provider'lar
+
+- Email: `apps/api/src/providers/email/` — InMemory (dev/test default), Mailhog (local SMTP), Postmark (prod). `app.email.send({ to, subject, text, html })`. Env: `POSTMARK_API_TOKEN > MAILHOG_HOST > inmemory`.
+
+## RLS — Sprint 1.6 sıkılaştırılmış
+
+- Manual migration `02_drop_permissive_fallback.sql` permissive `current_setting IS NULL` fallback'ini kaldırdı.
+- Tenant + User policy'lerinde `app.auth_lookup = 'on'` carve-out: yalnız `withAuthLookup(prisma, fn)` (login/refresh/me) tarafından açılır.
+- Tenant'lı endpoint'ler `request.db((tx) => ...)` ile transaction içinde `set_config('app.current_tenant', tenantId, true)` çalıştırır → RLS otomatik filtreler.
+- Integration test: `apps/api/src/__tests__/integration/multitenant.test.ts` — `RUN_INTEGRATION=1 DATABASE_URL=... pnpm test` ile çalışır; CI'da Postgres service container.
 
 ## Önemli
 
