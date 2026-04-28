@@ -7,6 +7,8 @@ import { useAuthStore } from "../auth/authStore";
 import { searchNearby, searchPolygon, type GeoJsonPolygon } from "./placesApi";
 import { ApiError } from "../../lib/apiClient";
 import { AddressSearch } from "./components/AddressSearch";
+import { SavedSearchPanel } from "./components/SavedSearchPanel";
+import type { SavedQuery } from "./savedSearchesApi";
 import {
   ALL_CATEGORIES,
   CATEGORY_COLOR,
@@ -131,6 +133,76 @@ export function MapPage() {
       polygonOverlayRef.current = null;
     }
   }, []);
+
+  /** Snapshot the current map state for saving. */
+  const captureQuery = useCallback((): SavedQuery => {
+    const q: SavedQuery = {
+      center: { lat, lng },
+      radius,
+      zoom: mapRef.current?.getZoom() ?? 14,
+    };
+    if (selectedCategories.length > 0) q.categories = selectedCategories;
+    const overlay = polygonOverlayRef.current;
+    if (overlay) {
+      const ring: [number, number][] = [];
+      overlay.getPath().forEach((p) => ring.push([p.lng(), p.lat()]));
+      if (ring.length > 0 && (ring[0]![0] !== ring.at(-1)![0] || ring[0]![1] !== ring.at(-1)![1])) {
+        ring.push([ring[0]![0], ring[0]![1]]);
+      }
+      q.polygon = { type: "Polygon", coordinates: [ring] };
+    }
+    return q;
+  }, [lat, lng, radius, selectedCategories]);
+
+  /** Restore a saved query onto the map. */
+  const loadQuery = useCallback(
+    async (q: SavedQuery) => {
+      // 1. Update URL (center/radius/categories)
+      const next: Partial<{ lat: number; lng: number; radius: number; cats: PlaceCategory[] }> = {};
+      if (q.center) {
+        next.lat = q.center.lat;
+        next.lng = q.center.lng;
+      }
+      if (q.radius) next.radius = q.radius;
+      next.cats = q.categories ?? [];
+      updateUrl(next);
+
+      // 2. Pan/zoom the map
+      const map = mapRef.current;
+      if (map && q.center) {
+        map.panTo({ lat: q.center.lat, lng: q.center.lng });
+        if (q.zoom) map.setZoom(q.zoom);
+      }
+
+      // 3. Replace polygon overlay (if any)
+      clearPolygonOverlay();
+      if (q.polygon) {
+        const libs = await loadMaps();
+        if (libs && map) {
+          const path = q.polygon.coordinates[0]!.map(([lngP, latP]) => ({
+            lat: latP,
+            lng: lngP,
+          }));
+          const poly = new libs.maps.Polygon({
+            map,
+            paths: path,
+            strokeColor: "#10b981",
+            strokeWeight: 2,
+            fillColor: "#10b981",
+            fillOpacity: 0.12,
+          });
+          polygonOverlayRef.current = poly;
+          // Also fire the polygon search to populate pins.
+          polygonM.mutate(q.polygon);
+          return;
+        }
+      }
+      // No polygon → trigger nearby search at the new location.
+      searchM.mutate();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [clearPolygonOverlay, updateUrl],
+  );
 
   // Initialise the map once.
   useEffect(() => {
@@ -388,6 +460,9 @@ export function MapPage() {
           }}
         />
       </div>
+
+      {/* Saved searches panel — left of the legend */}
+      <SavedSearchPanel capture={captureQuery} onLoad={(q) => void loadQuery(q)} />
 
       {/* Bottom bar: radius selector + draw + search */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-full shadow-md px-2 py-1.5">
