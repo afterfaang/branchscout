@@ -4,6 +4,7 @@ import { VerifyMfaPage } from "./features/auth/VerifyMfaPage";
 import { SetupMfaPage } from "./features/auth/SetupMfaPage";
 import { AcceptInvitationPage } from "./features/auth/AcceptInvitationPage";
 import { MapPage } from "./features/map/MapPage";
+import { BranchesPage } from "./features/admin/branches/BranchesPage";
 import { AppShell } from "./components/AppShell";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/auth/setup-mfa" element={<SetupMfaPage />} />
         <Route path="/" element={<AppShell />}>
           <Route index element={<MapPage />} />
+          <Route path="admin/branches" element={<BranchesPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -21,7 +21,20 @@ export function AppShell() {
             </span>
             <span className="font-semibold text-slate-900">BranchScout</span>
           </Link>
-          <nav className="flex items-center gap-3 text-sm">
+          <nav className="flex items-center gap-4 text-sm">
+            {user?.role === "ADMIN" && (
+              <>
+                <Link to="/admin/branches" className="text-slate-600 hover:text-slate-900">
+                  Şubeler
+                </Link>
+                <Link to="/admin/users" className="text-slate-600 hover:text-slate-900">
+                  Kullanıcılar
+                </Link>
+              </>
+            )}
+            <Link to="/auth/setup-mfa" className="text-slate-600 hover:text-slate-900">
+              MFA
+            </Link>
             {user && (
               <span className="text-slate-600">
                 {user.name}
