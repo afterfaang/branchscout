@@ -26,7 +26,7 @@ interface FakeUser {
 }
 
 function makeFakePrisma(users: FakeUser[]): AuthDeps["prisma"] {
-  return {
+  const tx = {
     user: {
       findFirst: async ({
         where,
@@ -43,6 +43,15 @@ function makeFakePrisma(users: FakeUser[]): AuthDeps["prisma"] {
         );
       },
     },
+    // withAuthLookup runs `tx.$executeRaw(...)` to set the auth_lookup config.
+    // In tests we just no-op it.
+    $executeRaw: async () => 0,
+  };
+  return {
+    ...tx,
+    // withAuthLookup invokes prisma.$transaction(fn) and we run the callback
+    // with the same tx-shaped object.
+    $transaction: async <T>(fn: (innerTx: typeof tx) => Promise<T>): Promise<T> => fn(tx),
   } as unknown as AuthDeps["prisma"];
 }
 

@@ -34,3 +34,19 @@ export async function withTenant<T>(
     return fn(tx);
   });
 }
+
+// withAuthLookup — login / refresh akışları için kontrollü RLS carve-out.
+// `app.auth_lookup = 'on'` set edilir, böylece Tenant + User policy'leri tüm
+// satırları döndürür. SADECE auth servisi tarafından çağrılmalı; her çağrı
+// kendi transaction'ında izole. Diğer modüller bu helper'a doğrudan
+// erişmemeli — referansını sınırlı tutmak için exports'tan çıkarılmadı ama
+// auth.service'in import etmesi yeterli.
+export async function withAuthLookup<T>(
+  prisma: PrismaClient,
+  fn: (tx: TenantBoundClient) => Promise<T>,
+): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`SELECT set_config('app.auth_lookup', 'on', true)`);
+    return fn(tx);
+  });
+}

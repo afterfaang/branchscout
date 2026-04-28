@@ -4,6 +4,7 @@
 
 import argon2 from "argon2";
 import type { PrismaClient, Role, User } from "@prisma/client";
+import { withAuthLookup } from "../../infrastructure/db/tenantPrisma.js";
 
 export interface AuthDeps {
   prisma: PrismaClient;
@@ -43,9 +44,11 @@ export async function login(
 ): Promise<LoginResult> {
   const normalizedEmail = email.trim().toLowerCase();
 
-  const user = await deps.prisma.user.findFirst({
-    where: { email: normalizedEmail },
-  });
+  // Login akışı tenant context'i bilmediği için RLS carve-out'u (auth_lookup) ile
+  // global User tablosunda email araması yapar. Kontrollü ve transaction-local.
+  const user = await withAuthLookup(deps.prisma, (tx) =>
+    tx.user.findFirst({ where: { email: normalizedEmail } }),
+  );
 
   if (!user) {
     // Aynı süre içinde başarısız olmak için yine de hash kontrol et (timing attack savunması).
@@ -87,9 +90,11 @@ export async function refresh(
   deps: AuthDeps,
   payload: { sub: string; tenant: string },
 ): Promise<{ accessToken: string; refreshToken: string; expiresIn: string }> {
-  const user = await deps.prisma.user.findFirst({
-    where: { id: payload.sub, tenantId: payload.tenant },
-  });
+  const user = await withAuthLookup(deps.prisma, (tx) =>
+    tx.user.findFirst({
+      where: { id: payload.sub, tenantId: payload.tenant },
+    }),
+  );
 
   if (!user || !user.isActive) {
     throw new InvalidCredentialsError();
@@ -113,16 +118,21 @@ export async function getCurrentUser(
   userId: string,
   tenantId: string,
 ) {
-  const user = await prisma.user.findFirst({
-    where: { id: userId, tenantId },
-    select: {
-      id: true,
-      tenantId: true,
-      email: true,
-      name: true,
-      role: true,
-      branchId: true,
-    },
-  });
+  // /me endpoint'i auth'lı, ama burada request.db'ye erişimimiz yok; auth
+  // context'inden gelen tenantId ile withAuthLookup kullanmak yeterli ve
+  // tenantId filter'ı zaten where içinde.
+  const user = await withAuthLookup(prisma, (tx) =>
+    tx.user.findFirst({
+      where: { id: userId, tenantId },
+      select: {
+        id: true,
+        tenantId: true,
+        email: true,
+        name: true,
+        role: true,
+        branchId: true,
+      },
+    }),
+  );
   return user;
 }
