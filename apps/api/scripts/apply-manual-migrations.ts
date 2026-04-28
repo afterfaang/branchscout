@@ -14,7 +14,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const prisma = new PrismaClient();
 
 async function main() {
-  const dir = join(__dirname, "..", "prisma", "migrations", "manual");
+  const dir = join(__dirname, "..", "prisma", "manual");
   const files = readdirSync(dir)
     .filter((f) => f.endsWith(".sql"))
     .sort();

@@ -33,7 +33,7 @@ describeIf("multi-tenant RLS isolation", () => {
 
     // Migration'ların uygulandığını varsayıyoruz; manual SQL'leri burada
     // tekrar uygulayarak idempotent şekilde garantiliyoruz.
-    const manualDir = join(__dirname, "..", "..", "..", "prisma", "migrations", "manual");
+    const manualDir = join(__dirname, "..", "..", "..", "prisma", "manual");
     for (const file of ["01_enable_rls.sql", "02_drop_permissive_fallback.sql", "03_invitations_recovery_rls.sql"]) {
       const sql = readFileSync(join(manualDir, file), "utf-8");
       await prisma.$executeRawUnsafe(sql);

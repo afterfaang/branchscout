@@ -26,7 +26,7 @@ Railway üzerinde deploy ediliyor.
 
 - Prisma schema tek kaynak: `apps/api/prisma/schema.prisma`
 - Migration: `pnpm db:migrate`
-- Manual (raw SQL) migration'lar: `apps/api/prisma/migrations/manual/` — RLS policy'leri burada; PostGIS Sprint 2'de eklenecek
+- Manual (raw SQL) migration'lar: `apps/api/prisma/manual/` — RLS policy'leri burada; PostGIS Sprint 2'de eklenecek (Prisma `migrate deploy`'in scan path'inden ayrı tutuluyor)
 - Manual SQL uygulama: `pnpm --filter @branchscout/api db:migrate:manual`
 - Tüm yeni tablolar `tenantId` taşır; RLS policy migration'da yazılır
 - Sprint 1: RLS aktif ama "permissive fallback" var — `app.current_tenant` setting yokken read açık. Sprint 2'de Prisma client extension ile per-request `SET LOCAL app.current_tenant` zorunlu hale gelecek
