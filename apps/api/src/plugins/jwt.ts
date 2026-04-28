@@ -46,6 +46,9 @@ declare module "fastify" {
     requireAuth: (
       request: FastifyRequest,
     ) => Promise<AuthContext>;
+    requireRole: (
+      ...roles: Role[]
+    ) => (request: FastifyRequest) => Promise<AuthContext>;
   }
   interface FastifyRequest {
     auth?: AuthContext;
@@ -134,6 +137,24 @@ async function jwtPlugin(app: FastifyInstance) {
     };
     request.auth = ctx;
     return ctx;
+  });
+
+  // Role-based guard factory. Use as preHandler:
+  //   { preHandler: app.requireRole("ADMIN") }
+  // Verifies bearer token, then asserts request.auth.role is in the allowlist.
+  app.decorate("requireRole", function (...roles: Role[]) {
+    if (roles.length === 0) {
+      throw new Error("requireRole called with empty roles list");
+    }
+    return async function (request: FastifyRequest): Promise<AuthContext> {
+      const ctx = await app.requireAuth(request);
+      if (!roles.includes(ctx.role)) {
+        throw app.httpErrors.forbidden(
+          `Role ${ctx.role} not permitted; required one of: ${roles.join(", ")}`,
+        );
+      }
+      return ctx;
+    };
   });
 }
 

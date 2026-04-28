@@ -82,4 +82,89 @@ describe("jwt plugin", () => {
 
     expect(a.refreshJti).not.toBe(b.refreshJti);
   });
+
+  describe("requireRole", () => {
+    // requireRole tests need to register routes; these can only be added
+    // before app.ready(), so each test builds its own app instance.
+    async function buildAppWithRoute(opts: {
+      role: import("@prisma/client").Role[];
+      path: string;
+    }) {
+      const local = Fastify({ logger: false });
+      await local.register(sensible);
+      await local.register(jwtPlugin);
+      local.get(opts.path, { preHandler: local.requireRole(...opts.role) }, async () => ({
+        ok: true,
+      }));
+      await local.ready();
+      return local;
+    }
+
+    it("allows when user role is in the allowlist", async () => {
+      const local = await buildAppWithRoute({ role: ["ADMIN"], path: "/admin-only" });
+      const { accessToken } = local.jwt.issueTokens({
+        userId: "u",
+        tenantId: "t",
+        role: "ADMIN",
+      });
+
+      const res = await local.inject({
+        method: "GET",
+        url: "/admin-only",
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ ok: true });
+      await local.close();
+    });
+
+    it("rejects with 403 when role does not match", async () => {
+      const local = await buildAppWithRoute({ role: ["ADMIN"], path: "/admin-only" });
+      const { accessToken } = local.jwt.issueTokens({
+        userId: "u",
+        tenantId: "t",
+        role: "BRANCH_MANAGER",
+      });
+
+      const res = await local.inject({
+        method: "GET",
+        url: "/admin-only",
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+
+      expect(res.statusCode).toBe(403);
+      await local.close();
+    });
+
+    it("rejects with 401 when no token", async () => {
+      const local = await buildAppWithRoute({ role: ["ADMIN"], path: "/admin-only" });
+
+      const res = await local.inject({ method: "GET", url: "/admin-only" });
+
+      expect(res.statusCode).toBe(401);
+      await local.close();
+    });
+
+    it("accepts multiple allowed roles", async () => {
+      const local = await buildAppWithRoute({
+        role: ["ADMIN", "REGION_MANAGER"],
+        path: "/manager-only",
+      });
+      const { accessToken } = local.jwt.issueTokens({
+        userId: "u",
+        tenantId: "t",
+        role: "REGION_MANAGER",
+      });
+
+      const res = await local.inject({
+        method: "GET",
+        url: "/manager-only",
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      await local.close();
+    });
+  });
 });
