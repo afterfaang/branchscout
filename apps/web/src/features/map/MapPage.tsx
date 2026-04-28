@@ -4,7 +4,8 @@ import Supercluster, { type ClusterFeature } from "supercluster";
 import { useSearchParams } from "react-router-dom";
 import { isMapsAvailable, loadMaps } from "../../lib/maps/loader";
 import { useAuthStore } from "../auth/authStore";
-import { searchNearby } from "./placesApi";
+import { searchNearby, searchPolygon, type GeoJsonPolygon } from "./placesApi";
+import { ApiError } from "../../lib/apiClient";
 import {
   ALL_CATEGORIES,
   CATEGORY_COLOR,
@@ -47,17 +48,45 @@ export function MapPage() {
   const mapRef = useRef<google.maps.Map | null>(null);
   const circleRef = useRef<google.maps.Circle | null>(null);
   const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
+  const polygonOverlayRef = useRef<google.maps.Polygon | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [places, setPlaces] = useState<PlaceSummary[]>([]);
   const [searchMeta, setSearchMeta] = useState<{ source: string; count: number } | null>(null);
+  const [drawingActive, setDrawingActive] = useState(false);
+  const [polygonError, setPolygonError] = useState<string | null>(null);
 
   const searchM = useMutation({
     mutationFn: () => searchNearby({ lat, lng, radius, maxResults: 50 }),
     onSuccess: (res) => {
       setPlaces(res.data);
       setSearchMeta({ source: res.meta.source, count: res.meta.count });
+      clearPolygonOverlay();
     },
   });
+
+  const polygonM = useMutation({
+    mutationFn: (polygon: GeoJsonPolygon) => searchPolygon({ polygon, maxResults: 200 }),
+    onSuccess: (res) => {
+      setPlaces(res.data);
+      setSearchMeta({ source: res.meta.source, count: res.meta.count });
+      setPolygonError(null);
+    },
+    onError: (err) => {
+      const msg =
+        err instanceof ApiError
+          ? (err.body?.detail ?? err.message)
+          : "Polygon araması başarısız oldu";
+      setPolygonError(msg);
+    },
+  });
+
+  const clearPolygonOverlay = useCallback(() => {
+    if (polygonOverlayRef.current) {
+      polygonOverlayRef.current.setMap(null);
+      polygonOverlayRef.current = null;
+    }
+  }, []);
 
   // Initialise the map once.
   useEffect(() => {
@@ -83,6 +112,47 @@ export function MapPage() {
           const c = map.getCenter();
           if (c) updateUrl({ lat: c.lat(), lng: c.lng() });
         });
+        // Drawing manager — kapalı duruyor, button ile aktif edilir.
+        const dm = new libs.drawing.DrawingManager({
+          drawingControl: false,
+          polygonOptions: {
+            strokeColor: "#10b981",
+            strokeWeight: 2,
+            fillColor: "#10b981",
+            fillOpacity: 0.12,
+            clickable: false,
+            editable: false,
+          },
+        });
+        dm.setMap(map);
+        drawingManagerRef.current = dm;
+
+        dm.addListener("polygoncomplete", (poly: google.maps.Polygon) => {
+          // Switch out of drawing mode.
+          dm.setDrawingMode(null);
+          setDrawingActive(false);
+
+          // Replace any previous overlay.
+          if (polygonOverlayRef.current) polygonOverlayRef.current.setMap(null);
+          polygonOverlayRef.current = poly;
+
+          // Convert path → GeoJSON ring (closed).
+          const ring: [number, number][] = [];
+          poly.getPath().forEach((p) => ring.push([p.lng(), p.lat()]));
+          if (ring.length > 0 && (ring[0]![0] !== ring.at(-1)![0] || ring[0]![1] !== ring.at(-1)![1])) {
+            ring.push([ring[0]![0], ring[0]![1]]);
+          }
+          const geoJson: GeoJsonPolygon = { type: "Polygon", coordinates: [ring] };
+
+          // Clear circle while polygon is active.
+          if (circleRef.current) {
+            circleRef.current.setMap(null);
+            circleRef.current = null;
+          }
+
+          polygonM.mutate(geoJson);
+        });
+
         setMapReady(true);
       } catch (err) {
         console.error("map init failed", err);
@@ -93,6 +163,24 @@ export function MapPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapsAvailable]);
+
+  const startDrawing = useCallback(async () => {
+    const libs = await loadMaps();
+    const dm = drawingManagerRef.current;
+    if (!libs || !dm) return;
+    setPolygonError(null);
+    clearPolygonOverlay();
+    dm.setDrawingMode(libs.drawing.OverlayType.POLYGON);
+    setDrawingActive(true);
+  }, [clearPolygonOverlay]);
+
+  const cancelDrawing = useCallback(() => {
+    const dm = drawingManagerRef.current;
+    if (dm) dm.setDrawingMode(null);
+    setDrawingActive(false);
+    clearPolygonOverlay();
+    setPolygonError(null);
+  }, [clearPolygonOverlay]);
 
   // Sync the radius circle.
   useEffect(() => {
@@ -243,15 +331,16 @@ export function MapPage() {
         </div>
       </div>
 
-      {/* Bottom bar: radius selector + search */}
+      {/* Bottom bar: radius selector + draw + search */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-full shadow-md px-2 py-1.5">
         {RADII.map((r) => (
           <button
             key={r}
             type="button"
             onClick={() => updateUrl({ radius: r })}
+            disabled={drawingActive}
             className={
-              "rounded-full px-3 py-1 text-xs font-medium transition-colors " +
+              "rounded-full px-3 py-1 text-xs font-medium transition-colors disabled:opacity-50 " +
               (r === radius
                 ? "bg-brand-600 text-white"
                 : "text-slate-700 hover:bg-slate-100")
@@ -264,11 +353,39 @@ export function MapPage() {
         <button
           type="button"
           onClick={() => searchM.mutate()}
-          disabled={searchM.isPending}
+          disabled={searchM.isPending || drawingActive}
           className="rounded-full bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-4 py-1.5 disabled:opacity-50"
         >
           {searchM.isPending ? "Aranıyor…" : "Bu Bölgede Ara"}
         </button>
+        <span className="mx-1 h-5 w-px bg-slate-300" />
+        {!drawingActive ? (
+          <button
+            type="button"
+            onClick={() => void startDrawing()}
+            disabled={polygonM.isPending}
+            className="rounded-full border border-emerald-500 text-emerald-700 hover:bg-emerald-50 text-xs font-semibold px-4 py-1.5 disabled:opacity-50"
+          >
+            ✏ Alan Çiz
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={cancelDrawing}
+            className="rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-4 py-1.5"
+          >
+            İptal (Çizim modu)
+          </button>
+        )}
+        {polygonOverlayRef.current && !drawingActive && (
+          <button
+            type="button"
+            onClick={cancelDrawing}
+            className="rounded-full border border-slate-300 text-slate-600 hover:bg-slate-50 text-xs font-medium px-3 py-1.5"
+          >
+            Alanı Temizle
+          </button>
+        )}
         {searchMeta && (
           <span className="ml-2 text-xs text-slate-500">
             {searchMeta.count} sonuç ·{" "}
@@ -278,6 +395,25 @@ export function MapPage() {
           </span>
         )}
       </div>
+
+      {/* Polygon error banner */}
+      {polygonError && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 bg-red-50 border border-red-200 text-red-700 text-sm rounded-md shadow-sm px-3 py-2 max-w-md">
+          {polygonError}
+          <button
+            type="button"
+            onClick={() => setPolygonError(null)}
+            className="ml-2 text-xs text-red-600 underline"
+          >
+            kapat
+          </button>
+        </div>
+      )}
+      {polygonM.isPending && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 bg-white border border-slate-200 text-slate-700 text-sm rounded-md shadow-sm px-3 py-2">
+          Poligon içindeki firmalar getiriliyor…
+        </div>
+      )}
 
       {/* Top-right: legend */}
       <div className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-md shadow-sm px-3 py-2 text-xs space-y-1">

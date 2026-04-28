@@ -9,27 +9,38 @@ const API_KEY: string | undefined =
   (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ?? undefined;
 
 let optionsSet = false;
-let mapsPromise: Promise<{
+type Libs = {
   maps: google.maps.MapsLibrary;
   marker: google.maps.MarkerLibrary;
-}> | null = null;
+  drawing: google.maps.DrawingLibrary;
+  visualization: google.maps.VisualizationLibrary;
+  places: google.maps.PlacesLibrary;
+};
+let mapsPromise: Promise<Libs> | null = null;
 
 export function isMapsAvailable(): boolean {
   return Boolean(API_KEY);
 }
 
-export function loadMaps(): Promise<{
-  maps: google.maps.MapsLibrary;
-  marker: google.maps.MarkerLibrary;
-}> | null {
+export function loadMaps(): Promise<Libs> | null {
   if (!API_KEY) return null;
   if (mapsPromise) return mapsPromise;
   if (!optionsSet) {
     setOptions({ key: API_KEY, v: "weekly", language: "tr", region: "TR" });
     optionsSet = true;
   }
-  mapsPromise = Promise.all([importLibrary("maps"), importLibrary("marker")]).then(
-    ([maps, marker]) => ({ maps, marker }),
-  );
+  mapsPromise = Promise.all([
+    importLibrary("maps"),
+    importLibrary("marker"),
+    importLibrary("drawing"),
+    importLibrary("visualization"),
+    importLibrary("places"),
+  ]).then(([maps, marker, drawing, visualization, places]) => ({
+    maps,
+    marker,
+    drawing,
+    visualization,
+    places,
+  }));
   return mapsPromise;
 }
