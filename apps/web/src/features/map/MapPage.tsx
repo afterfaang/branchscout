@@ -327,7 +327,7 @@ function DemoSearchPanel({ onSearch, loading, places, meta }: DemoPanelProps) {
       )}
       {places.length === 0 ? (
         <p className="text-sm text-slate-500">
-          "Ara" diyerek {RADII[1] / 1000} km yarıçap içindeki demo firmaları listeleyin.
+          &ldquo;Ara&rdquo; diyerek {RADII[1] / 1000} km yarıçap içindeki demo firmaları listeleyin.
         </p>
       ) : (
         <ul className="grid sm:grid-cols-2 gap-2">

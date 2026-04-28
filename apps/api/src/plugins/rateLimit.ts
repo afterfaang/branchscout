@@ -25,7 +25,6 @@ async function rateLimitPlugin(app: FastifyInstance) {
   // Redis store wires lazily so the plugin still works against in-memory fallback.
   if (config.redisUrl) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const ioredisModule = await import("ioredis");
       const Ctor =
         (ioredisModule as unknown as { default?: new (url: string) => unknown }).default ??

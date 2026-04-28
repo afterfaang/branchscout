@@ -32,8 +32,8 @@ export class PostmarkEmailProvider implements EmailProvider {
     let postmark: PostmarkModule;
     try {
       // Postmark is an optional peer dep, no @types/* installed.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       // @ts-expect-error -- module is optional and not type-resolved
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       postmark = await import(/* @vite-ignore */ "postmark");
     } catch {
       throw new Error("postmark is not installed; cannot use PostmarkEmailProvider");

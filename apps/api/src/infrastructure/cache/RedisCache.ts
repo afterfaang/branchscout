@@ -16,7 +16,6 @@ export class RedisCache implements Cache {
   private constructor(private readonly client: MinimalRedisClient) {}
 
   static async create(redisUrl: string): Promise<RedisCache> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const ioredisModule = await import("ioredis");
     // ioredis exports a default class.
     const Ctor =

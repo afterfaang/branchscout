@@ -93,6 +93,16 @@ Dış API çağrılarında her zaman cost middleware kullan; her çağrı `ApiCo
 ## Provider'lar
 
 - Email: `apps/api/src/providers/email/` — InMemory (dev/test default), Mailhog (local SMTP), Postmark (prod). `app.email.send({ to, subject, text, html })`. Env: `POSTMARK_API_TOKEN > MAILHOG_HOST > inmemory`.
+- Places: `apps/api/src/providers/places/` — InMemoryPlacesProvider (18 fake firma Kadıköy etrafı, dev/test default), GooglePlacesProvider (Places API New, X-Goog-FieldMask zorunlu, ~$0.004/call). Env: `GOOGLE_MAPS_API_KEY` set ise Google.
+- Cache: `apps/api/src/infrastructure/cache/` — RedisCache (ioredis lazy import) veya InMemoryCache (Map + TTL). `app.cache.get/set/del`. Env: `REDIS_URL` set ise Redis.
+
+## Sprint 2 — Maps + Places (tamamlandı)
+
+- `POST /api/v1/places/search/nearby` — auth'lı, geohash6+radius+catHash cache key (7 gün TTL), Postgres'e Company upsert (tenant-scoped), her çağrı `ApiCostEvent` yazar.
+- `GET /api/v1/admin/costs/today` — ADMIN, bugünkü API maliyeti (provider+endpoint kırılımı).
+- Frontend: `features/map/MapPage.tsx` — Maps SDK lazy loader, AdvancedMarkerElement, supercluster clustering, yarıçap chip seçici, URL state (lat/lng/radius), kategori legend. API key yoksa demo liste paneli (provider abstraction sayesinde aynı backend akışı çalışır).
+- Rate limit: `@fastify/rate-limit`, kullanıcı bazında 60/dk; Redis store opsiyonel.
+- PostGIS: lat/lng Float kolonları + composite index. PostGIS GEOGRAPHY kolonu Sprint 3+ için `manual/05_postgis_company.sql` (idempotent + permission-tolerant) altında bekliyor.
 
 ## RLS — Sprint 1.6 sıkılaştırılmış
 

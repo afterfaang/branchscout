@@ -3,7 +3,7 @@
 Banka şube müdürleri için saha keşif ve ziyaret planlama uygulaması.
 Şube müdürü kendi catchment area'sındaki KOBİ'leri haritada keşfeder, firma bilgilerini birleşik bir panelden görür, ziyaret rotaları planlar ve sonuçları takip eder.
 
-> ✅ **Sprint 1 tamamlandı.** Monorepo iskeleti, JWT auth + TOTP/MFA, kullanıcı davet akışı (24h token, argon2id), şube CRUD admin paneli, role-based bölge görünümü, sıkılaştırılmış multi-tenant RLS, e-posta provider abstraction (InMemory/Mailhog/Postmark), Vitest auth + invitation + TOTP testleri (33 yeşil), GitHub Actions CI.
+> ✅ **Sprint 2 tamamlandı.** Sprint 1'in üstüne: Google Places provider abstraction (Google + InMemory seed), Redis cache + InMemory fallback, geohash-keyed nearby search endpoint (7 gün TTL), per-call cost tracking + admin maliyet dashboard'u, Maps JS SDK lazy loader + AdvancedMarkerElement pin'leri, supercluster ile clustering, yarıçap selector + URL state, kategori legend. Backend tests 59 geçer.
 
 ## Hızlı Başlangıç
 
