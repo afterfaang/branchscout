@@ -29,6 +29,7 @@ model Tenant {
   branches    Branch[]
   invitations Invitation[]
   companies   Company[]
+  savedSearches SavedSearch[]
 }
 
 model User {
@@ -50,6 +51,7 @@ model User {
   branch         Branch?        @relation(fields: [branchId], references: [id])
   recoveryCodes  RecoveryCode[]
   invitationsSent Invitation[]  @relation("InvitedBy")
+  savedSearches  SavedSearch[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -185,4 +187,22 @@ model ApiCostEvent {
 
   @@index([tenantId, createdAt])
   @@index([provider, createdAt])
+}
+
+// User-saved map searches — a poligon, radius, or autocomplete-derived
+// query the manager wants to revisit. queryJson keeps the full state so
+// loading the search restores the map exactly. Tenant-scoped via RLS.
+model SavedSearch {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  name      String
+  queryJson Json     // { center?: {lat,lng}, radius?, polygon?: GeoJSON.Polygon, categories?: string[], zoom? }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
 }
