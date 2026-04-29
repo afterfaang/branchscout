@@ -14,13 +14,17 @@
 
 import type {
   NearbySearchParams,
+  OpeningHours,
   PlaceCategory,
+  PlaceDetail,
+  PlacePhoto,
   PlaceSummary,
   PlacesProvider,
 } from "./PlacesProvider.js";
 import { mapPrimaryTypeToCategory } from "./PlacesProvider.js";
 
 const PLACES_API_URL = "https://places.googleapis.com/v1/places:searchNearby";
+const PLACE_DETAIL_BASE = "https://places.googleapis.com/v1/places";
 
 const NEARBY_FIELD_MASK = [
   "places.id",
@@ -31,6 +35,24 @@ const NEARBY_FIELD_MASK = [
   "places.primaryType",
   "places.rating",
   "places.userRatingCount",
+].join(",");
+
+// Sprint 4 — Essentials + Pro alanları. Enterprise-only (editorialSummary,
+// reviews vb.) bilinçli olarak dışarıda — pricing koruması.
+const DETAILS_FIELD_MASK = [
+  "id",
+  "displayName",
+  "formattedAddress",
+  "location",
+  "types",
+  "primaryType",
+  "rating",
+  "userRatingCount",
+  "nationalPhoneNumber",
+  "websiteUri",
+  "regularOpeningHours",
+  "currentOpeningHours.openNow",
+  "photos",
 ].join(",");
 
 interface GoogleNearbyRequest {
@@ -125,6 +147,106 @@ export class GooglePlacesProvider implements PlacesProvider {
         reviewCount: p.userRatingCount ?? null,
       }));
   }
+
+  async getDetails(placeId: string): Promise<PlaceDetail | null> {
+    const url = `${PLACE_DETAIL_BASE}/${encodeURIComponent(placeId)}?languageCode=tr&regionCode=tr`;
+    const res = await this.fetchImpl(url, {
+      method: "GET",
+      headers: {
+        "X-Goog-Api-Key": this.apiKey,
+        "X-Goog-FieldMask": DETAILS_FIELD_MASK,
+      },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Google Places getDetails failed (${res.status}): ${text.slice(0, 200)}`);
+    }
+    const p = (await res.json()) as GoogleDetailResponse;
+
+    const photos: PlacePhoto[] = (p.photos ?? []).slice(0, 10).map((ph) => ({
+      reference: ph.name,
+      widthPx: ph.widthPx ?? null,
+      heightPx: ph.heightPx ?? null,
+      authorAttributions:
+        ph.authorAttributions?.map((a) => ({
+          displayName: a.displayName,
+          uri: a.uri ?? null,
+        })) ?? [],
+    }));
+
+    const hours: OpeningHours | null = p.regularOpeningHours
+      ? {
+          weekdayDescriptions: p.regularOpeningHours.weekdayDescriptions ?? [],
+          periods:
+            p.regularOpeningHours.periods?.map((per) => ({
+              open: per.open,
+              close: per.close,
+            })) ?? [],
+          openNow: p.currentOpeningHours?.openNow ?? null,
+        }
+      : null;
+
+    return {
+      googlePlaceId: p.id,
+      name: p.displayName?.text ?? "(adı yok)",
+      formattedAddress: p.formattedAddress ?? null,
+      lat: p.location?.latitude ?? 0,
+      lng: p.location?.longitude ?? 0,
+      category: mapPrimaryTypeToCategory(p.primaryType ?? p.types?.[0]),
+      types: p.types ?? [],
+      rating: p.rating ?? null,
+      reviewCount: p.userRatingCount ?? null,
+      phone: p.nationalPhoneNumber ?? null,
+      websiteUri: p.websiteUri ?? null,
+      hours,
+      photos,
+    };
+  }
+
+  /**
+   * Photo URL resolver — Google's `places/X/photos/Y/media` endpoint redirects
+   * to a short-lived signed URL. We follow the redirect manually so we can
+   * return the final URL to the client without hitting Google again.
+   */
+  async resolvePhotoUrl(reference: string, maxWidthPx: number): Promise<string | null> {
+    const safeWidth = Math.min(Math.max(Math.round(maxWidthPx), 1), 4800);
+    const url = `https://places.googleapis.com/v1/${reference}/media?maxWidthPx=${safeWidth}&skipHttpRedirect=true`;
+    const res = await this.fetchImpl(url, {
+      method: "GET",
+      headers: { "X-Goog-Api-Key": this.apiKey },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => null)) as { photoUri?: string } | null;
+    return data?.photoUri ?? null;
+  }
+}
+
+interface GoogleDetailResponse {
+  id: string;
+  displayName?: { text?: string };
+  formattedAddress?: string;
+  location?: { latitude?: number; longitude?: number };
+  types?: string[];
+  primaryType?: string;
+  rating?: number;
+  userRatingCount?: number;
+  nationalPhoneNumber?: string;
+  websiteUri?: string;
+  regularOpeningHours?: {
+    weekdayDescriptions?: string[];
+    periods?: Array<{
+      open: { day: number; hour: number; minute: number };
+      close?: { day: number; hour: number; minute: number };
+    }>;
+  };
+  currentOpeningHours?: { openNow?: boolean };
+  photos?: Array<{
+    name: string;
+    widthPx?: number;
+    heightPx?: number;
+    authorAttributions?: Array<{ displayName: string; uri?: string }>;
+  }>;
 }
 
 // Coarse category → Google primary type list. Sprint 2'de minimal mapping;

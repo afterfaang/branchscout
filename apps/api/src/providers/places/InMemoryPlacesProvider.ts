@@ -5,6 +5,7 @@
 import type {
   NearbySearchParams,
   PlaceCategory,
+  PlaceDetail,
   PlaceSummary,
   PlacesProvider,
 } from "./PlacesProvider.js";
@@ -56,6 +57,30 @@ export class InMemoryPlacesProvider implements PlacesProvider {
       rating: place.rating ?? null,
       reviewCount: place.reviewCount ?? null,
     }));
+  }
+
+  async getDetails(placeId: string): Promise<PlaceDetail | null> {
+    const place = this.seed.find((p) => p.googlePlaceId === placeId);
+    if (!place) return null;
+    return {
+      googlePlaceId: place.googlePlaceId,
+      name: place.name,
+      formattedAddress: place.formattedAddress ?? null,
+      lat: place.lat,
+      lng: place.lng,
+      category: place.category,
+      types: place.types ?? [],
+      rating: place.rating ?? null,
+      reviewCount: place.reviewCount ?? null,
+      phone: null,
+      websiteUri: null,
+      hours: null,
+      photos: [],
+    };
+  }
+
+  async resolvePhotoUrl(_reference: string, _maxWidthPx: number): Promise<string | null> {
+    return null;
   }
 
   /** Test helpers. */
