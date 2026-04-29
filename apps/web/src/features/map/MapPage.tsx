@@ -9,6 +9,7 @@ import { ApiError } from "../../lib/apiClient";
 import { AddressSearch } from "./components/AddressSearch";
 import { SavedSearchPanel } from "./components/SavedSearchPanel";
 import type { SavedQuery } from "./savedSearchesApi";
+import { PlaceDetailsPanel } from "../places/PlaceDetailsPanel";
 import {
   ALL_CATEGORIES,
   CATEGORY_COLOR,
@@ -44,8 +45,18 @@ export function MapPage() {
       .filter((s): s is PlaceCategory => ALL_CATEGORIES.includes(s as PlaceCategory));
   }, [searchParams]);
 
+  const activePlaceId = searchParams.get("placeId");
+
   const updateUrl = useCallback(
-    (next: Partial<{ lat: number; lng: number; radius: number; cats: PlaceCategory[] }>) => {
+    (
+      next: Partial<{
+        lat: number;
+        lng: number;
+        radius: number;
+        cats: PlaceCategory[];
+        placeId: string | null;
+      }>,
+    ) => {
       const params = new URLSearchParams(searchParams);
       if (next.lat !== undefined) params.set("lat", next.lat.toFixed(6));
       if (next.lng !== undefined) params.set("lng", next.lng.toFixed(6));
@@ -53,6 +64,10 @@ export function MapPage() {
       if (next.cats !== undefined) {
         if (next.cats.length === 0) params.delete("cats");
         else params.set("cats", next.cats.join(","));
+      }
+      if (next.placeId !== undefined) {
+        if (next.placeId === null) params.delete("placeId");
+        else params.set("placeId", next.placeId);
       }
       setSearchParams(params, { replace: true });
     },
@@ -412,9 +427,7 @@ export function MapPage() {
         if (!isCluster) {
           marker.addListener("click", () => {
             const props = feature.properties as PinFeatureProps;
-            alert(
-              `${props.name}\nKategori: ${CATEGORY_LABEL[props.category]}\n\nSprint 4'te detay paneli gelecek.`,
-            );
+            updateUrl({ placeId: props.placeId });
           });
         }
         markersRef.current.push(marker);
@@ -423,7 +436,7 @@ export function MapPage() {
     return () => {
       cancelled = true;
     };
-  }, [mapReady, supercluster, visiblePlaces.length, heatmapVisible]);
+  }, [mapReady, supercluster, visiblePlaces.length, heatmapVisible, updateUrl]);
 
   // Heatmap render: visualization library + LatLng points; toggle visibility
   // based on zoom. Cleared/recreated when visiblePlaces or visibility flips.
@@ -505,6 +518,12 @@ export function MapPage() {
 
       {/* Saved searches panel — left of the legend */}
       <SavedSearchPanel capture={captureQuery} onLoad={(q) => void loadQuery(q)} />
+
+      {/* Right slide-in: place details */}
+      <PlaceDetailsPanel
+        placeId={activePlaceId}
+        onClose={() => updateUrl({ placeId: null })}
+      />
 
       {/* Heatmap toggle (top-left, below user info) */}
       <div className="absolute top-20 left-4 z-10 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-md shadow-sm px-3 py-2 text-xs flex items-center gap-2">
