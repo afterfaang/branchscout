@@ -30,6 +30,7 @@ model Tenant {
   invitations Invitation[]
   companies   Company[]
   savedSearches SavedSearch[]
+  websiteClicks WebsiteClick[]
 }
 
 model User {
@@ -52,6 +53,7 @@ model User {
   recoveryCodes  RecoveryCode[]
   invitationsSent Invitation[]  @relation("InvitedBy")
   savedSearches  SavedSearch[]
+  websiteClicks  WebsiteClick[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -167,6 +169,7 @@ model Company {
   updatedAt         DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  websiteClicks WebsiteClick[]
 
   @@index([tenantId])
   @@index([tenantId, category])
@@ -205,4 +208,21 @@ model SavedSearch {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId])
+}
+
+// US-4.5 — outbound website link click tracking. Sprint 13 lead score input.
+model WebsiteClick {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  companyId String
+  url       String
+  createdAt DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([companyId, createdAt])
 }
