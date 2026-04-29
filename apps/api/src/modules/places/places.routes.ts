@@ -7,10 +7,15 @@ import {
   PlaceNotFoundError,
   PolygonTooLargeError,
   getPlaceDetails,
+  refreshPlaceDetails,
   searchInPolygon,
   searchNearby,
 } from "./places.service.js";
 import { ALLOWED_CATEGORIES, type PlaceCategory } from "../../providers/places/index.js";
+
+const ClickSchema = z.object({
+  url: z.string().url().max(2000),
+});
 
 const NearbySchema = z.object({
   lat: z.number().min(-90).max(90),
@@ -146,6 +151,86 @@ export async function placesRoutes(app: FastifyInstance) {
         }
         throw err;
       }
+    },
+  );
+
+  app.post(
+    "/places/:placeId/refresh",
+    {
+      schema: {
+        description:
+          "Cache invalidate + fresh fetch. Kullanıcı başına saatte 30 yenileme limiti.",
+        tags: ["places"],
+        security: [{ bearerAuth: [] }],
+      },
+      preHandler: app.requireAuth,
+      config: {
+        // Per-route rate limit override — 30/h per (tenant,user) key.
+        rateLimit: { max: 30, timeWindow: "1 hour" },
+      },
+    },
+    async (request, reply) => {
+      const { placeId } = request.params as { placeId: string };
+      const auth = request.auth!;
+      try {
+        const result = await refreshPlaceDetails(
+          { prisma: app.prisma, cache: app.cache, provider: app.places },
+          { tenantId: auth.tenantId, userId: auth.userId, placeId },
+        );
+        return reply.send({
+          data: result.place,
+          meta: {
+            source: result.source,
+            lastEnrichedAt: result.lastEnrichedAt,
+            provider: app.places.name,
+          },
+        });
+      } catch (err) {
+        if (err instanceof PlaceNotFoundError) {
+          throw app.httpErrors.notFound(err.message);
+        }
+        throw err;
+      }
+    },
+  );
+
+  app.post(
+    "/places/:placeId/website-click",
+    {
+      schema: {
+        description:
+          "Firma website tıklama metriği. Sprint 13 lead score için sinyal.",
+        tags: ["places"],
+        security: [{ bearerAuth: [] }],
+      },
+      preHandler: app.requireAuth,
+    },
+    async (request, reply) => {
+      const parsed = ClickSchema.safeParse(request.body);
+      if (!parsed.success) throw app.httpErrors.badRequest(parsed.error.message);
+      const { placeId } = request.params as { placeId: string };
+      const auth = request.auth!;
+
+      const company = await request.db((tx) =>
+        tx.company.findFirst({
+          where: { tenantId: auth.tenantId, googlePlaceId: placeId },
+          select: { id: true },
+        }),
+      );
+      if (!company) throw app.httpErrors.notFound("Firma bulunamadı");
+
+      await request.db((tx) =>
+        tx.websiteClick.create({
+          data: {
+            tenantId: auth.tenantId,
+            userId: auth.userId,
+            companyId: company.id,
+            url: parsed.data.url,
+          },
+        }),
+      );
+
+      return reply.code(201).send({ recorded: true });
     },
   );
 }
