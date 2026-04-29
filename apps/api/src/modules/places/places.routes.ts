@@ -4,7 +4,9 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
   InvalidPolygonError,
+  PlaceNotFoundError,
   PolygonTooLargeError,
+  getPlaceDetails,
   searchInPolygon,
   searchNearby,
 } from "./places.service.js";
@@ -105,6 +107,42 @@ export async function placesRoutes(app: FastifyInstance) {
         }
         if (err instanceof PolygonTooLargeError) {
           throw app.httpErrors.badRequest(err.message);
+        }
+        throw err;
+      }
+    },
+  );
+
+  app.get(
+    "/places/:placeId",
+    {
+      schema: {
+        description:
+          "Bir Place ID için zenginleştirilmiş firma detayı. DB → Redis → Google Places sırasıyla cache. 30 günlük freshness penceresi.",
+        tags: ["places"],
+        security: [{ bearerAuth: [] }],
+      },
+      preHandler: app.requireAuth,
+    },
+    async (request, reply) => {
+      const { placeId } = request.params as { placeId: string };
+      const auth = request.auth!;
+      try {
+        const result = await getPlaceDetails(
+          { prisma: app.prisma, cache: app.cache, provider: app.places },
+          { tenantId: auth.tenantId, userId: auth.userId, placeId },
+        );
+        return reply.send({
+          data: result.place,
+          meta: {
+            source: result.source,
+            lastEnrichedAt: result.lastEnrichedAt,
+            provider: app.places.name,
+          },
+        });
+      } catch (err) {
+        if (err instanceof PlaceNotFoundError) {
+          throw app.httpErrors.notFound(err.message);
         }
         throw err;
       }

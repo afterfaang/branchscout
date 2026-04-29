@@ -334,3 +334,179 @@ function ringContains(lng: number, lat: number, ring: [number, number][]): boole
   }
   return inside;
 }
+
+// ===========================================================================
+// US-4.2 — Place Details (DB → Redis → Google) with 30-day cache
+// ===========================================================================
+
+import type { PlaceDetail } from "../../providers/places/PlacesProvider.js";
+
+const DETAILS_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 gün
+const DETAILS_FRESH_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+export interface DetailsOptions {
+  tenantId: string;
+  userId: string;
+  placeId: string;
+  /** When true, bypass DB+Redis and force a fresh provider call. */
+  forceRefresh?: boolean;
+}
+
+export interface DetailsResult {
+  place: PlaceDetail;
+  source: "db" | "cache" | "api";
+  /** Last time the company row was enriched (DB lastEnrichedAt). */
+  lastEnrichedAt: Date | null;
+}
+
+export class PlaceNotFoundError extends Error {
+  constructor(public placeId: string) {
+    super(`Place ${placeId} bulunamadı`);
+    this.name = "PlaceNotFoundError";
+  }
+}
+
+export async function getPlaceDetails(
+  deps: PlacesServiceDeps,
+  opts: DetailsOptions,
+): Promise<DetailsResult> {
+  const cacheKey = `places:details:${opts.placeId}`;
+
+  // 1. DB hit if Company row is fresh enough (Sprint 4 enrichment fields).
+  if (!opts.forceRefresh) {
+    const dbHit = await withTenant(deps.prisma, opts.tenantId, (tx) =>
+      tx.company.findFirst({
+        where: { googlePlaceId: opts.placeId, tenantId: opts.tenantId },
+      }),
+    );
+    if (
+      dbHit &&
+      dbHit.lastEnrichedAt &&
+      Date.now() - dbHit.lastEnrichedAt.getTime() < DETAILS_FRESH_WINDOW_MS
+    ) {
+      return {
+        place: companyRowToDetail(dbHit),
+        source: "db",
+        lastEnrichedAt: dbHit.lastEnrichedAt,
+      };
+    }
+
+    // 2. Redis hit
+    const cached = await deps.cache.get<PlaceDetail>(cacheKey);
+    if (cached) {
+      return { place: cached, source: "cache", lastEnrichedAt: null };
+    }
+  }
+
+  // 3. Provider fetch
+  const fresh = await deps.provider.getDetails(opts.placeId);
+  if (!fresh) {
+    throw new PlaceNotFoundError(opts.placeId);
+  }
+
+  // Cost event
+  await recordCost(deps.prisma, {
+    tenantId: opts.tenantId,
+    userId: opts.userId,
+    provider: deps.provider.name,
+    endpoint: "place_details",
+    costUsd: deps.provider.costUsdPerCall("place_details"),
+    metadata: { placeId: opts.placeId, refresh: !!opts.forceRefresh },
+  });
+
+  // Persist to DB (full enrichment) and Redis (30-day TTL).
+  const enrichedAt = new Date();
+  await withTenant(deps.prisma, opts.tenantId, async (tx) => {
+    await tx.company.upsert({
+      where: { googlePlaceId: fresh.googlePlaceId },
+      create: {
+        tenantId: opts.tenantId,
+        googlePlaceId: fresh.googlePlaceId,
+        name: fresh.name,
+        formattedAddress: fresh.formattedAddress,
+        lat: fresh.lat,
+        lng: fresh.lng,
+        category: fresh.category,
+        types: fresh.types,
+        rating: fresh.rating,
+        reviewCount: fresh.reviewCount,
+        phone: fresh.phone,
+        websiteUri: fresh.websiteUri,
+        photosJson: fresh.photos as unknown as Prisma.InputJsonValue,
+        hoursJson: (fresh.hours as unknown as Prisma.InputJsonValue | null) ?? Prisma.JsonNull,
+        lastEnrichedAt: enrichedAt,
+      },
+      update: {
+        name: fresh.name,
+        formattedAddress: fresh.formattedAddress,
+        lat: fresh.lat,
+        lng: fresh.lng,
+        category: fresh.category,
+        types: fresh.types,
+        rating: fresh.rating,
+        reviewCount: fresh.reviewCount,
+        phone: fresh.phone,
+        websiteUri: fresh.websiteUri,
+        photosJson: fresh.photos as unknown as Prisma.InputJsonValue,
+        hoursJson: (fresh.hours as unknown as Prisma.InputJsonValue | null) ?? Prisma.JsonNull,
+        lastEnrichedAt: enrichedAt,
+      },
+    });
+    // PostGIS backfill (idempotent, no-op if no extension).
+    try {
+      await tx.$executeRaw`
+        UPDATE "Company"
+        SET location = ST_SetSRID(ST_MakePoint(${fresh.lng}, ${fresh.lat}), 4326)::geography
+        WHERE "googlePlaceId" = ${fresh.googlePlaceId}
+      `;
+    } catch {
+      /* no PostGIS */
+    }
+  });
+  await deps.cache.set(cacheKey, fresh, DETAILS_CACHE_TTL_SECONDS);
+
+  return { place: fresh, source: "api", lastEnrichedAt: enrichedAt };
+}
+
+/** Force a refresh — invalidates DB freshness + Redis, then fetches. */
+export async function refreshPlaceDetails(
+  deps: PlacesServiceDeps,
+  opts: Omit<DetailsOptions, "forceRefresh">,
+): Promise<DetailsResult> {
+  await deps.cache.del(`places:details:${opts.placeId}`);
+  return getPlaceDetails(deps, { ...opts, forceRefresh: true });
+}
+
+function companyRowToDetail(row: {
+  googlePlaceId: string;
+  name: string;
+  formattedAddress: string | null;
+  lat: number | null;
+  lng: number | null;
+  category: string | null;
+  types: string[];
+  rating: number | null;
+  reviewCount: number | null;
+  phone: string | null;
+  websiteUri: string | null;
+  photosJson: unknown;
+  hoursJson: unknown;
+}): PlaceDetail {
+  return {
+    googlePlaceId: row.googlePlaceId,
+    name: row.name,
+    formattedAddress: row.formattedAddress ?? null,
+    lat: row.lat ?? 0,
+    lng: row.lng ?? 0,
+    category: (row.category as PlaceCategory) ?? mapPrimaryTypeToCategory(row.types?.[0]),
+    types: row.types ?? [],
+    rating: row.rating ?? null,
+    reviewCount: row.reviewCount ?? null,
+    phone: row.phone ?? null,
+    websiteUri: row.websiteUri ?? null,
+    hours:
+      (row.hoursJson as PlaceDetail["hours"] | null) ??
+      null,
+    photos: (row.photosJson as PlaceDetail["photos"] | null) ?? [],
+  };
+}
