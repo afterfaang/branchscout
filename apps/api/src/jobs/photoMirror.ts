@@ -13,7 +13,7 @@
 //
 // Idempotent: aynı (placeId, reference) çift kez tetiklenirse 1x mirror.
 
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import type { PlacePhoto, PlacesProvider } from "../providers/places/PlacesProvider.js";
 import type { StorageProvider } from "../providers/storage/index.js";
 import { withTenant } from "../infrastructure/db/tenantPrisma.js";
@@ -75,7 +75,7 @@ export async function mirrorPhoto(
     }
     await tx.company.update({
       where: { id: company.id },
-      data: { photosJson: photos as unknown as import("@prisma/client").Prisma.InputJsonValue },
+      data: { photosJson: photos as unknown as Prisma.InputJsonValue },
     });
   });
 

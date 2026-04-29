@@ -127,3 +127,15 @@ Dış API çağrılarında her zaman cost middleware kullan; her çağrı `ApiCo
 - Banka iç sistemleri (SSO, CRM, MERSİS) yok — SaaS olarak konumlanıyor; PRD § 7.4 veri kaynağı stratejisi
 - Google Maps API key Sprint 2'de devreye girer; o zamana kadar harita placeholder
 - Güvenlik: Helmet, CORS, JWT, RLS Sprint 0-1'de kuruldu; sıkılaştırma + pen test Sprint 15'te
+
+## Sprint 4 — Place Details (tamamlandı, **Alpha Release**)
+
+- `GET /api/v1/places/:placeId` — DB → Redis → Google Places sırasıyla cache, 30 günlük freshness penceresi. Field mask Essentials/Pro alanları (no Enterprise SKU). `meta.source` döner.
+- `POST /api/v1/places/:placeId/refresh` — cache invalidate + fresh fetch. Per-route rate limit: kullanıcı başı 30/saat.
+- `POST /api/v1/places/:placeId/website-click` — `WebsiteClick` row yazar (Sprint 13 lead score sinyali).
+- Frontend yenileri:
+  - `features/places/PlaceDetailsPanel.tsx` — sağ slide-in (400px desktop, full mobile), URL state `?placeId=...`, ESC + backdrop click + close button kapatır.
+  - `features/places/PhotoGallery.tsx` — 3-col thumbnail + `yet-another-react-lightbox`. Foto URL'leri Google'dan canlı (~1h); R2 mirror Sprint 5'te aktive olunca `photo.url` kullanılır (UI değişmez).
+  - `features/places/OpeningHours.tsx` — Türkçe gün adları, "Açık/Kapalı" pill, bugün vurgulu haftalık tablo.
+- StorageProvider abstraction: `InMemoryStorageProvider` (default) + `R2StorageProvider` (R2_* env'lar set olunca). `apps/api/src/jobs/photoMirror.ts` skeleton — Sprint 5'te BullMQ'ya wire edilecek.
+- Manuel SQL: `07_website_click_rls.sql`.

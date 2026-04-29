@@ -3,7 +3,7 @@
 Banka şube müdürleri için saha keşif ve ziyaret planlama uygulaması.
 Şube müdürü kendi catchment area'sındaki KOBİ'leri haritada keşfeder, firma bilgilerini birleşik bir panelden görür, ziyaret rotaları planlar ve sonuçları takip eder.
 
-> ✅ **Sprint 3 tamamlandı.** Sprint 2'nin üstüne: PostGIS aktif (Railway `postgis/postgis:17-3.5`), polygon search (`ST_Contains`, 100 km² limit), Drawing Manager UI, kategori chip filtresi (URL state), Google Places Autocomplete + session token, kayıtlı aramalar (CRUD + sidebar), heatmap layer (zoom < 13 otomatik). Backend tests 67 geçer.
+> 🏁 **Sprint 4 tamamlandı — Alpha Release.** Sprint 3'ün üstüne: Place Details endpoint (DB→Redis→Google, 30 günlük TTL), sağ slide-in detay paneli (URL state `?placeId=`), foto galeri + lightbox, Türkçe açılış saatleri, refresh (rate-limited 30/saat), website tıklama metriği, R2 storage abstraction (Sprint 5'te aktive). Backend tests 70 geçer.
 
 ## Hızlı Başlangıç
 

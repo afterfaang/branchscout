@@ -25,8 +25,7 @@ export class R2StorageProvider implements StorageProvider {
 
   private constructor(
     private readonly config: R2Config,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    client: any,
+    client: unknown,
   ) {
     this.client = client;
   }
@@ -47,11 +46,11 @@ export class R2StorageProvider implements StorageProvider {
     };
     try {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      s3Module = await import(/* @vite-ignore */ "@aws-sdk/client-s3" as string);
+      s3Module = await import(/* @vite-ignore */ "@aws-sdk/client-s3");
     } catch {
       throw new Error("@aws-sdk/client-s3 is not installed; R2StorageProvider unavailable");
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
     const client = new s3Module.S3Client({
       region: config.region ?? "auto",
       endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
@@ -66,7 +65,7 @@ export class R2StorageProvider implements StorageProvider {
   async exists(key: string): Promise<boolean> {
     try {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-      const cmds: any = await import(/* @vite-ignore */ "@aws-sdk/client-s3" as string);
+      const cmds: any = await import(/* @vite-ignore */ "@aws-sdk/client-s3");
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       const cmd = new cmds.HeadObjectCommand({ Bucket: this.config.bucket, Key: key });
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -83,7 +82,7 @@ export class R2StorageProvider implements StorageProvider {
     contentType: string;
   }): Promise<StorageObject> {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-    const cmds: any = await import(/* @vite-ignore */ "@aws-sdk/client-s3" as string);
+    const cmds: any = await import(/* @vite-ignore */ "@aws-sdk/client-s3");
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const cmd = new cmds.PutObjectCommand({
       Bucket: this.config.bucket,
